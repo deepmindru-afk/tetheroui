@@ -17,6 +17,7 @@ function setState(next: UpdateState): void {
 
 function unsupportedReason(): UpdateState['reason'] {
   if (!app.isPackaged) return 'development'
+  if (!existsSync(join(process.resourcesPath, 'app-update.yml'))) return 'unsupported'
   if (process.platform !== 'linux') return undefined
   if (process.env.SNAP || process.env.FLATPAK_ID || existsSync('/.flatpak-info')) return 'managed'
   if (process.env.APPIMAGE) return undefined
