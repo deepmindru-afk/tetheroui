@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.openwebui.tether</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <name>Tether</name>
+  <summary>Your Open WebUI, wherever you work</summary>
+  <developer id="com.openwebui"><name>Open WebUI Inc.</name></developer>
+  <description>
+    <p>Tether extends Open WebUI beyond the browser. Interact with your AI right from your desktop, and give it the access to work directly on your computer.</p>
+  </description>
+  <launchable type="desktop-id">com.openwebui.tether.desktop</launchable>
+  <content_rating type="oars-1.1" />
+  <url type="homepage">https://github.com/open-webui/tether</url>
+  <url type="bugtracker">https://github.com/open-webui/tether/issues</url>
+  <url type="vcs-browser">https://github.com/open-webui/tether</url>
+</component>

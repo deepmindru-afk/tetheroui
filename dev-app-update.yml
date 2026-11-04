@@ -1,0 +1,4 @@
+provider: github
+owner: open-webui
+repo: tether
+updaterCacheDirName: tether-updater
