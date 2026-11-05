@@ -275,8 +275,8 @@
                   >
                     <span class="connection-icon">{@render globe()}</span>
                     <span class="connection-details">
-                      <span class="connection-name">{connection.name}</span>
-                      <span class="connection-url" title={connection.url}>{connection.url}</span>
+                      <span class="connection-name" dir="auto">{connection.name}</span>
+                      <span class="connection-url" dir="ltr" title={connection.url}>{connection.url}</span>
                     </span>
                   </button>
                   <button
@@ -343,6 +343,7 @@
             <label for="url">{$i18n.t('connections.address')}</label>
             <input
               id="url"
+              dir="ltr"
               bind:this={addressInput}
               type="url"
               bind:value={url}
@@ -359,6 +360,7 @@
             >
             <input
               id="name"
+              dir="auto"
               bind:value={name}
               maxlength="100"
               placeholder={$i18n.t('connections.namePlaceholder')}
@@ -732,7 +734,7 @@
   }
   .terminal-setup button {
     flex-shrink: 0;
-    margin-left: auto;
+    margin-inline-start: auto;
   }
   section + section {
     margin-top: 12px;
@@ -748,7 +750,7 @@
     flex: 1;
     min-width: 0;
     gap: 10px;
-    text-align: left;
+    text-align: start;
     padding: 4px 0;
   }
   .connection-icon {
@@ -975,11 +977,11 @@
   }
   .browser-button {
     width: 20px;
-    padding-right: 4px;
+    padding-inline-end: 4px;
   }
   .terminal-toggle {
     width: 18px;
-    margin-right: 4px;
+    margin-inline-end: 4px;
     padding: 0;
     line-height: 0;
   }

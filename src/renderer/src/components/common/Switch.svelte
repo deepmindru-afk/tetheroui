@@ -28,7 +28,7 @@
 >
   <span
     class="pointer-events-none absolute top-[2px] h-[12px] w-[12px] rounded-full transition-all duration-150 {checked
-      ? 'left-[14px] bg-white dark:bg-black'
-      : 'left-[2px] bg-white dark:bg-[oklch(0.69_0_0)]'}"
+      ? 'start-[14px] bg-white dark:bg-black'
+      : 'start-[2px] bg-white dark:bg-[oklch(0.69_0_0)]'}"
   ></span>
 </button>

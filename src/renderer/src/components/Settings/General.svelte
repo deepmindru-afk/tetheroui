@@ -204,6 +204,7 @@
     </div>
     <input
       id="device-name"
+      dir="auto"
       class="setting-input device-name"
       value={config.deviceName}
       placeholder={deviceName}
@@ -417,7 +418,8 @@
     border-radius: 8px;
     border: 1px solid oklch(0.94 0 0 / 0.5);
     background: oklch(0.98 0 0 / 0.4);
-    padding: 0 32px 0 10px;
+    padding-block: 0;
+    padding-inline: 10px 32px;
     font-size: 12px;
     line-height: 16px;
     color: oklch(0.42 0 0);
@@ -440,7 +442,7 @@
   .select-chevron {
     pointer-events: none;
     position: absolute;
-    right: 8px;
+    inset-inline-end: 8px;
     top: 50%;
     transform: translateY(-50%);
     width: 14px;

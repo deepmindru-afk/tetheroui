@@ -88,7 +88,7 @@
             onclick={onClose}
           >
             <span class="inline-flex size-[12px] shrink-0 [&>svg]:size-full" aria-hidden="true"
-              >{@html NavArrowLeftIcon}</span
+               class:rotate-180={$i18n.dir() === 'rtl'}>{@html NavArrowLeftIcon}</span
             >{$i18n.t('settings.back')}</button
           >
           <button
@@ -112,13 +112,13 @@
             : 'hidden'}"
         >
           <span
-            class="pointer-events-none absolute left-[8px] top-1/2 inline-flex size-[14px] -translate-y-1/2 [&>svg]:size-full"
+            class="pointer-events-none absolute start-[8px] top-1/2 inline-flex size-[14px] -translate-y-1/2 [&>svg]:size-full"
             aria-hidden="true">{@html SearchIcon}</span
           >
           <input
             id="settings-search"
             aria-label={$i18n.t('settings.search')}
-            class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-full min-w-0 pl-[30px]"
+            class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-full min-w-0 ps-[30px]"
             bind:value={search}
             placeholder={$i18n.t('settings.search')}
             onkeydown={(event) => {
@@ -143,7 +143,7 @@
             {/if}
             <button
               type="button"
-              class="flex h-[28px] shrink-0 items-center gap-[6px] rounded-[8px] px-[8px] text-left transition-colors duration-75 md:w-full {settingsTab ===
+              class="flex h-[28px] shrink-0 items-center gap-[6px] rounded-[8px] px-[8px] text-start transition-colors duration-75 md:w-full {settingsTab ===
               tab.id
                 ? 'bg-gray-50 font-medium text-gray-900 dark:bg-white/[0.04] dark:text-white'
                 : 'text-gray-800 hover:text-gray-900 dark:text-gray-200 dark:hover:text-gray-100'}"
@@ -177,7 +177,7 @@
         {#key settingsTab}
           <section
             aria-labelledby="settings-heading"
-            class="min-h-0 flex-1 overflow-y-auto pr-[6px]"
+            class="min-h-0 flex-1 overflow-y-auto pe-[6px]"
           >
             {#if settingsTab === 'general'}
               <General />

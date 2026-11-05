@@ -294,7 +294,7 @@
             <button
               aria-label={$i18n.t('spotlight.removeImage', { number: i + 1 })}
               disabled={busy}
-              class="absolute -right-[4px] -top-[4px] size-[18px] rounded-full bg-gray-900 p-[3px] text-white [&>svg]:size-full"
+              class="absolute -end-[4px] -top-[4px] size-[18px] rounded-full bg-gray-900 p-[3px] text-white [&>svg]:size-full"
               onclick={() => (files = files.filter((_, index) => index !== i))}
               >{@html Xmark}</button
             >
@@ -304,6 +304,7 @@
     {/if}
     <div class="flex items-center gap-[12px]">
       <textarea
+        dir="auto"
         bind:this={input}
         bind:value={query}
         aria-label={$i18n.t('spotlight.ask')}

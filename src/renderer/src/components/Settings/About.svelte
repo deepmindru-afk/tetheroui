@@ -202,7 +202,8 @@
   <div class="min-h-0 overflow-y-auto px-[20px] pb-[20px] text-[12px] leading-[18px] select-text">
     {#if notes}
       <div
-        class="[&_h3]:mt-[20px] [&_h3]:font-medium [&_h3:first-child]:mt-0 [&_h4]:mt-[10px] [&_h4]:mb-[4px] [&_h4]:font-medium [&_ul]:list-disc [&_ul]:pl-[16px] [&_li+li]:mt-[2px] [&_p]:mt-[6px] [&_code]:rounded [&_code]:bg-black/5 [&_code]:px-1 dark:[&_code]:bg-white/5"
+        dir="auto"
+        class="[&_h3]:mt-[20px] [&_h3]:font-medium [&_h3:first-child]:mt-0 [&_h4]:mt-[10px] [&_h4]:mb-[4px] [&_h4]:font-medium [&_ul]:list-disc [&_ul]:ps-[16px] [&_li+li]:mt-[2px] [&_p]:mt-[6px] [&_code]:rounded [&_code]:bg-black/5 [&_code]:px-1 dark:[&_code]:bg-white/5"
       >
         {@html formattedNotes}
       </div>

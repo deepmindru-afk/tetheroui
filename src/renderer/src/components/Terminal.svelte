@@ -92,7 +92,7 @@
   })
 </script>
 
-<div class="terminal-viewer" bind:this={container}></div>
+<div dir="ltr" class="terminal-viewer" bind:this={container}></div>
 {#if error}<div class="terminal-error" role="status">{error}</div>{/if}
 <button
   class="copy-output"
@@ -124,7 +124,7 @@
   .copy-output {
     position: absolute;
     top: 2px;
-    right: 14px;
+    inset-inline-end: 14px;
     width: 28px;
     height: 28px;
     display: flex;

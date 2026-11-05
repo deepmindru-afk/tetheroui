@@ -8,6 +8,7 @@ const i18n = writable(i18next)
 for (const event of ['initialized', 'loaded', 'languageChanged'] as const) {
   i18next.on(event, () => {
     document.documentElement.lang = i18next.resolvedLanguage || 'en-US'
+    document.documentElement.dir = i18next.dir(document.documentElement.lang)
     i18n.set(i18next)
   })
 }

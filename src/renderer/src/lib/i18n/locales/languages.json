@@ -1,11 +1,66 @@
 [
-  { "code": "en-US", "title": "English (US)" },
-  { "code": "bg-BG", "title": "Български" },
-  { "code": "de-DE", "title": "Deutsch" },
-  { "code": "es-ES", "title": "Español" },
-  { "code": "fr-FR", "title": "Français" },
-  { "code": "ja-JP", "title": "日本語" },
-  { "code": "ko-KR", "title": "한국어" },
-  { "code": "zh-CN", "title": "简体中文" },
-  { "code": "zh-TW", "title": "繁體中文" }
+  {
+    "code": "en-US",
+    "title": "English (US)"
+  },
+  {
+    "code": "ar",
+    "title": "العربية"
+  },
+  {
+    "code": "bg-BG",
+    "title": "Български"
+  },
+  {
+    "code": "de-DE",
+    "title": "Deutsch"
+  },
+  {
+    "code": "es-ES",
+    "title": "Español"
+  },
+  {
+    "code": "fr-FR",
+    "title": "Français"
+  },
+  {
+    "code": "he-IL",
+    "title": "עברית"
+  },
+  {
+    "code": "hi-IN",
+    "title": "हिन्दी"
+  },
+  {
+    "code": "it-IT",
+    "title": "Italiano"
+  },
+  {
+    "code": "ja-JP",
+    "title": "日本語"
+  },
+  {
+    "code": "ko-KR",
+    "title": "한국어"
+  },
+  {
+    "code": "nl-NL",
+    "title": "Nederlands"
+  },
+  {
+    "code": "pl-PL",
+    "title": "Polski"
+  },
+  {
+    "code": "ru-RU",
+    "title": "Русский"
+  },
+  {
+    "code": "zh-CN",
+    "title": "简体中文"
+  },
+  {
+    "code": "zh-TW",
+    "title": "繁體中文"
+  }
 ]
