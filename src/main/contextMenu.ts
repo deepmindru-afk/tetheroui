@@ -28,20 +28,28 @@ export function attachContextMenu(contents: WebContents): void {
       menuItems.push({ type: 'separator' })
     }
 
-    // Editable field actions (input, textarea, contenteditable)
+    // Keep edits in the clicked view, even if another connection gains focus.
     if (params.isEditable) {
       menuItems.push(
-        { label: 'Undo', role: 'undo', enabled: params.editFlags.canUndo },
-        { label: 'Redo', role: 'redo', enabled: params.editFlags.canRedo },
+        { label: 'Undo', click: () => contents.undo(), enabled: params.editFlags.canUndo },
+        { label: 'Redo', click: () => contents.redo(), enabled: params.editFlags.canRedo },
         { type: 'separator' },
-        { label: 'Cut', role: 'cut', enabled: params.editFlags.canCut },
-        { label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy },
-        { label: 'Paste', role: 'paste', enabled: params.editFlags.canPaste },
-        { label: 'Select All', role: 'selectAll', enabled: params.editFlags.canSelectAll }
+        { label: 'Cut', click: () => contents.cut(), enabled: params.editFlags.canCut },
+        { label: 'Copy', click: () => contents.copy(), enabled: params.editFlags.canCopy },
+        { label: 'Paste', click: () => contents.paste(), enabled: params.editFlags.canPaste },
+        {
+          label: 'Select All',
+          click: () => contents.selectAll(),
+          enabled: params.editFlags.canSelectAll
+        }
       )
     } else if (params.selectionText) {
       // Non-editable text selection
-      menuItems.push({ label: 'Copy', role: 'copy', enabled: params.editFlags.canCopy })
+      menuItems.push({
+        label: 'Copy',
+        click: () => contents.copy(),
+        enabled: params.editFlags.canCopy
+      })
     }
 
     if (params.mediaType === 'image') {
