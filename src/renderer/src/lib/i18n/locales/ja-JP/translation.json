@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "変更履歴を読む",
   "settings.terminal.version": "Open Terminal のバージョン",
   "settings.about.platform": "プラットフォーム",
+  "settings.about.automaticUpdates": "デスクトップアプリの自動更新",
+  "settings.about.automaticUpdatesDesc": "デスクトップアプリの更新を自動でダウンロードし、終了時にインストールします。",
   "settings.about.softwareUpdate": "ソフトウェア更新",
   "settings.about.managedUpdates": "更新はパッケージマネージャーで管理されています。",
   "settings.about.packagedUpdates": "更新はパッケージ版で利用できます。",

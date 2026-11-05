@@ -67,6 +67,7 @@ interface Stream {
 
 export class Relay {
   connected = false
+  notifications = false
   private socket?: WebSocket
   private streams = new Map<string, Stream>()
   private destinations = new Map<string, ResolveDestination>()
@@ -80,7 +81,8 @@ export class Relay {
     private connection: Connection,
     private sessions: Sessions,
     private status: (message: string) => void,
-    private getName: () => string
+    private getName: () => string,
+    private notify: (payload: unknown) => void = () => {}
   ) {}
 
   setService(name: string, resolve?: ResolveDestination): void {
@@ -132,6 +134,7 @@ export class Relay {
           JSON.stringify({
             type: 'hello',
             version: 2,
+            notifications: true,
             token: access.token,
             connection_id: this.connection.id,
             name: this.getName(),
@@ -145,13 +148,16 @@ export class Relay {
             const control = JSON.parse(bytes.toString())
             if (control.type === 'ready') {
               this.connected = true
+              this.notifications = control.notifications === true
               this.delay = 1000
               this.status('')
             }
             return
           }
           const { header, data } = decode(Buffer.from(bytes as Buffer))
-          this.receive(header, data)
+          if (header.type === 'notification') {
+            if (this.notifications) this.notify(JSON.parse(data.toString()))
+          } else this.receive(header, data)
         } catch {
           socket.close(1008, 'Invalid relay packet')
         }
@@ -180,6 +186,7 @@ export class Relay {
 
   private schedule(): void {
     this.connected = false
+    this.notifications = false
     this.status('Local connection unavailable. Reconnecting.')
     clearTimeout(this.retry)
     this.retry = setTimeout(() => void this.connect(), this.delay)
@@ -416,6 +423,7 @@ export class Relay {
 
   stop(): void {
     this.connected = false
+    this.notifications = false
     this.stopped = true
     clearTimeout(this.retry)
     clearInterval(this.heartbeat)

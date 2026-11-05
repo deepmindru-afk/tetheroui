@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "查看更新日志",
   "settings.terminal.version": "Open Terminal 版本",
   "settings.about.platform": "平台",
+  "settings.about.automaticUpdates": "桌面应用自动更新",
+  "settings.about.automaticUpdatesDesc": "自动下载桌面应用更新，并在退出时安装。",
   "settings.about.softwareUpdate": "软件更新",
   "settings.about.managedUpdates": "更新由软件包管理器管理。",
   "settings.about.packagedUpdates": "更新仅在打包版本中可用。",

@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "Änderungsprotokoll lesen",
   "settings.terminal.version": "Open-Terminal-Version",
   "settings.about.platform": "Plattform",
+  "settings.about.automaticUpdates": "Automatische Desktop-Updates",
+  "settings.about.automaticUpdatesDesc": "Desktop-Updates automatisch herunterladen und beim Beenden installieren.",
   "settings.about.softwareUpdate": "Softwareupdate",
   "settings.about.managedUpdates": "Updates werden von deiner Paketverwaltung verwaltet.",
   "settings.about.packagedUpdates": "Updates sind in paketierten Versionen verfügbar.",

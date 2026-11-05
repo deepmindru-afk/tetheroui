@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "Lire le journal des modifications",
   "settings.terminal.version": "Version d’Open Terminal",
   "settings.about.platform": "Plateforme",
+  "settings.about.automaticUpdates": "Mises à jour automatiques de Desktop",
+  "settings.about.automaticUpdatesDesc": "Télécharger automatiquement les mises à jour de Desktop et les installer à la fermeture.",
   "settings.about.softwareUpdate": "Mise à jour du logiciel",
   "settings.about.managedUpdates": "Les mises à jour sont gérées par votre gestionnaire de paquets.",
   "settings.about.packagedUpdates": "Les mises à jour sont disponibles dans les versions distribuées.",

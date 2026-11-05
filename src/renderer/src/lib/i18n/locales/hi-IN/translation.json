@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "बदलावों का विवरण पढ़ें",
   "settings.terminal.version": "Open Terminal का संस्करण",
   "settings.about.platform": "प्लैटफ़ॉर्म",
+  "settings.about.automaticUpdates": "स्वचालित डेस्कटॉप अपडेट",
+  "settings.about.automaticUpdatesDesc": "डेस्कटॉप अपडेट अपने आप डाउनलोड करें और ऐप बंद करने पर उन्हें इंस्टॉल करें।",
   "settings.about.softwareUpdate": "सॉफ़्टवेयर अपडेट",
   "settings.about.managedUpdates": "अपडेट आपके पैकेज मैनेजर द्वारा प्रबंधित किए जाते हैं।",
   "settings.about.packagedUpdates": "अपडेट पैकेज किए गए बिल्ड में उपलब्ध हैं।",

@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "檢視更新紀錄",
   "settings.terminal.version": "Open Terminal 版本",
   "settings.about.platform": "平台",
+  "settings.about.automaticUpdates": "桌面應用程式自動更新",
+  "settings.about.automaticUpdatesDesc": "自動下載桌面應用程式更新，並在結束時安裝。",
   "settings.about.softwareUpdate": "軟體更新",
   "settings.about.managedUpdates": "更新由套件管理員管理。",
   "settings.about.packagedUpdates": "更新可在封裝版本中使用。",

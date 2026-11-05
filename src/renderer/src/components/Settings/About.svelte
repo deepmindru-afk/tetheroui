@@ -7,11 +7,15 @@
   import changelog from '../../../../../CHANGELOG.md?raw'
   import type { AppInfo } from '../../../../shared/api'
   import type { UpdateState } from '../../../../shared/updater'
+  import Switch from '../common/Switch.svelte'
 
   let info = $state<AppInfo | null>(null)
   let terminalVersion = $state<string | null>(null)
   let update = $state<UpdateState>({ status: 'idle' })
   let error = $state('')
+  let automaticUpdates = $state(true)
+  let configLoaded = $state(false)
+  let savingAutomaticUpdates = $state(false)
   let changelogDialog: HTMLDialogElement
   const notes = changelog.replace(/^# Changelog\s*/i, '').trim()
   const formattedNotes = notes
@@ -39,9 +43,24 @@
     }
   }
 
+  async function saveAutomaticUpdates(enabled: boolean): Promise<void> {
+    savingAutomaticUpdates = true
+    await run(async () => {
+      await window.api.setConfig({ automaticUpdates: enabled })
+      automaticUpdates = enabled
+    })
+    savingAutomaticUpdates = false
+  }
+
   onMount(() => {
     let disposed = false
     let receivedUpdate = false
+    let receivedConfig = false
+    const unsubscribeConfig = window.api.onConfigChanged((config) => {
+      receivedConfig = true
+      automaticUpdates = config.automaticUpdates
+      configLoaded = true
+    })
     const unsubscribe = window.api.onUpdateState((value) => {
       receivedUpdate = true
       update = value
@@ -49,13 +68,16 @@
     void Promise.all([
       window.api.getAppInfo(),
       window.api.getRuntimeState(),
-      window.api.getUpdateState()
+      window.api.getUpdateState(),
+      window.api.getConfig()
     ])
-      .then(([app, runtime, state]) => {
+      .then(([app, runtime, state, config]) => {
         if (disposed) return
         info = app
         terminalVersion = runtime.version
         if (!receivedUpdate) update = state
+        if (!receivedConfig) automaticUpdates = config.automaticUpdates
+        configLoaded = true
       })
       .catch((cause) => {
         error = String(cause).replace(/^Error: /, '')
@@ -63,6 +85,7 @@
     return () => {
       disposed = true
       unsubscribe()
+      unsubscribeConfig()
     }
   })
 </script>
@@ -95,6 +118,28 @@
     </div>
     <div class="text-[12px]">{info?.platform ?? '…'}</div>
   </div>
+  {#if update.status !== 'unsupported'}
+    <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px]">
+      <div>
+        <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+          {$i18n.t('settings.about.automaticUpdates')}
+        </div>
+        <div
+          class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5"
+        >
+          {$i18n.t('settings.about.automaticUpdatesDesc')}
+        </div>
+      </div>
+      {#key `${automaticUpdates}-${savingAutomaticUpdates}`}
+        <Switch
+          checked={automaticUpdates}
+          disabled={!configLoaded || savingAutomaticUpdates}
+          label={$i18n.t('settings.about.automaticUpdates')}
+          onchange={saveAutomaticUpdates}
+        />
+      {/key}
+    </div>
+  {/if}
   <div class="pt-1">
     <div class="flex items-center justify-between gap-[16px]">
       <div>

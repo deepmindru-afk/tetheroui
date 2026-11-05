@@ -10,6 +10,7 @@ export interface GeneralConfig {
   language: string
   deviceName: string
   theme: 'system' | 'light' | 'dark'
+  automaticUpdates: boolean
   startMinimized: boolean
   runInBackground: boolean
   showMenuBarIcon: boolean
@@ -25,6 +26,7 @@ export const defaultGeneralConfig: GeneralConfig = {
   language: '',
   deviceName: '',
   theme: 'system',
+  automaticUpdates: true,
   startMinimized: false,
   runInBackground: true,
   showMenuBarIcon: true,
@@ -55,6 +57,7 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
     throw new Error('Invalid language')
   if (!['system', 'light', 'dark'].includes(config.theme)) throw new Error('Invalid appearance')
   for (const key of [
+    'automaticUpdates',
     'startMinimized',
     'runInBackground',
     'showMenuBarIcon',
@@ -88,6 +91,7 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
     language: config.language,
     deviceName: config.deviceName.trim(),
     theme: config.theme,
+    automaticUpdates: config.automaticUpdates,
     startMinimized: config.startMinimized,
     runInBackground: config.runInBackground,
     showMenuBarIcon: config.showMenuBarIcon,

@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "קריאת יומן השינויים",
   "settings.terminal.version": "גרסת Open Terminal",
   "settings.about.platform": "פלטפורמה",
+  "settings.about.automaticUpdates": "עדכונים אוטומטיים ליישום שולחן העבודה",
+  "settings.about.automaticUpdatesDesc": "הורדת עדכונים ליישום שולחן העבודה באופן אוטומטי והתקנתם בעת היציאה.",
   "settings.about.softwareUpdate": "עדכון תוכנה",
   "settings.about.managedUpdates": "העדכונים מנוהלים על ידי מנהל החבילות שלך.",
   "settings.about.packagedUpdates": "עדכונים זמינים בגרסאות ארוזות.",

@@ -3,6 +3,7 @@ import {
   desktopCapturer,
   dialog,
   ipcMain,
+  Notification,
   session,
   shell,
   WebContentsView,
@@ -57,6 +58,8 @@ export class Connections {
   private terminalHeight = 0
   private localShell = new ManagedService(spawnPty, true)
   private settingsOpen = false
+  private notificationIds = new Set<string>()
+  private notifications = new Map<string, Electron.Notification>()
   private stopped = false
   private views = new Map<string, WebContentsView>()
   private titles = new Map<string, string>()
@@ -101,10 +104,10 @@ export class Connections {
     }
   }
 
-  async showConnection(id: string | null): Promise<void> {
+  async showConnection(id: string | null, path?: string): Promise<void> {
     this.settingsOpen = false
     this.window?.webContents.send('connections:show')
-    await this.select(id)
+    await this.select(id, path)
   }
 
   async sendEvent(connection: Connection, payload: TetherEvent): Promise<void> {
@@ -218,6 +221,12 @@ export class Connections {
       this.local.get(id)?.relay?.updateToken(access.token)
       void this.ensureLocal(id)
     } else {
+      for (const [key, notification] of this.notifications) {
+        if (key.startsWith(id + ':')) {
+          notification.close()
+          this.notifications.delete(key)
+        }
+      }
       const local = this.local.get(id)
       this.local.delete(id)
       clearTimeout(local?.retry)
@@ -524,20 +533,24 @@ export class Connections {
     this.titles.delete(id)
   }
 
-  private async select(id: string | null): Promise<void> {
+  private async select(id: string | null, path?: string): Promise<void> {
     if (id !== null && !this.store.connections.some((item) => item.id === id))
       throw new Error('Unknown connection')
     this.store.selected = id
     await this.store.saveConfig()
     if (id && !this.views.has(id))
-      this.createView(this.store.connections.find((item) => item.id === id)!)
+      this.createView(this.store.connections.find((item) => item.id === id)!, path)
+    else if (id && path) {
+      const connection = this.store.connections.find((item) => item.id === id)!
+      await this.views.get(id)!.webContents.loadURL(endpoint(connection.url, path))
+    }
     const theme = id && this.themes.get(id)
     if (theme && theme !== this.store.general.theme) await this.themeChanged(theme)
     this.layout()
     this.emit()
   }
 
-  private createView(connection: Connection): void {
+  private createView(connection: Connection, path?: string): void {
     const view = new WebContentsView({
       webPreferences: {
         session: session.fromPath(join(app.getPath('userData'), 'profiles', connection.id)),
@@ -619,7 +632,7 @@ export class Connections {
       this.fail(connection.id, 'WebUI stopped. Select Reload from the View menu.')
     )
     void view.webContents
-      .loadURL(connection.url)
+      .loadURL(path ? endpoint(connection.url, path) : connection.url)
       .catch(() => this.fail(connection.id, 'Could not load WebUI.'))
   }
 
@@ -684,6 +697,7 @@ export class Connections {
     }
     await this.startLocalTerminal()
     for (const id of Object.keys(this.store.credentials)) void this.ensureLocal(id)
+    for (const [id, entry] of this.local) void this.startTerminal(id, entry)
   }
 
   private async uninstallTerminal(): Promise<void> {
@@ -714,12 +728,18 @@ export class Connections {
       })
       for (const [id, entry] of this.local) {
         clearTimeout(entry.retry)
-        entry.relay?.stop()
-        if (id !== null) delete this.errors[id]
+        entry.retry = undefined
+        entry.handle = undefined
+        entry.relay?.setService('open_terminal')
+        if (id !== null) {
+          delete this.errors[id]
+          if (!entry.relay) this.local.delete(id)
+        }
       }
-      this.local.clear()
+      this.local.delete(null)
       this.emit()
       await this.terminal.uninstallPackage()
+      for (const id of Object.keys(this.store.credentials)) void this.ensureLocal(id)
     } finally {
       this.updatingRuntime = false
     }
@@ -729,14 +749,76 @@ export class Connections {
     for (const entry of this.local.values()) entry.relay?.updateName()
   }
 
-  private async ensureLocal(id: string): Promise<void> {
+  private showNotification(id: string, value: unknown): void {
+    if (!value || typeof value !== 'object' || this.stopped) return
+    const payload = value as Record<string, unknown>
     if (
-      !this.store.localServer.enabled ||
-      this.stopped ||
-      this.local.has(id) ||
-      !this.sessions.credential(id)?.sessionId
+      typeof payload.id !== 'string' ||
+      payload.id.length > 200 ||
+      typeof payload.user_id !== 'string' ||
+      typeof payload.title !== 'string' ||
+      payload.title.length > 256 ||
+      typeof payload.body !== 'string' ||
+      payload.body.length > 4096 ||
+      typeof payload.path !== 'string' ||
+      payload.path.length > 1000 ||
+      !/^\/(?:calendar|(?:c|channels)\/[^/?#]+)$/.test(payload.path)
     )
       return
+    const connection = this.store.connections.find((item) => item.id === id)
+    if (!connection || this.sessions.credential(id)?.userId !== payload.user_id) return
+    const key = `${id}:${payload.user_id}:${payload.id}`
+    if (this.notificationIds.has(key)) return
+    this.notificationIds.add(key)
+    if (this.notificationIds.size > 256)
+      this.notificationIds.delete(this.notificationIds.values().next().value!)
+    const view = this.views.get(id)
+    const target = endpoint(connection.url, payload.path)
+    if (
+      id === this.store.selected &&
+      !this.settingsOpen &&
+      this.window?.isVisible() &&
+      !this.window.isMinimized() &&
+      this.window.isFocused() &&
+      view?.webContents.getURL().split(/[?#]/)[0] === target &&
+      payload.path !== '/calendar'
+    )
+      return
+    if (!Notification.isSupported()) return
+    const notification = new Notification({ title: payload.title, body: payload.body })
+    if (this.notifications.size >= 50) {
+      const [oldest, previous] = this.notifications.entries().next().value!
+      previous.close()
+      this.notifications.delete(oldest)
+    }
+    this.notifications.set(key, notification)
+    const dismiss = (): void => {
+      this.notifications.delete(key)
+    }
+    notification.on('close', dismiss)
+    notification.on('failed', dismiss)
+    notification.on('click', () => {
+      dismiss()
+      if (
+        this.stopped ||
+        this.sessions.credential(id)?.userId !== payload.user_id ||
+        !this.store.connections.some((item) => item.id === id && item.url === connection.url)
+      )
+        return
+      void this.showConnection(id, payload.path as string)
+        .then(() => {
+          if (this.window?.isMinimized()) this.window.restore()
+          this.window?.show()
+          this.window?.focus()
+          this.views.get(id)?.webContents.focus()
+        })
+        .catch(() => {})
+    })
+    notification.show()
+  }
+
+  private async ensureLocal(id: string): Promise<void> {
+    if (this.stopped || this.local.has(id) || !this.sessions.credential(id)?.sessionId) return
     const connection = this.store.connections.find((item) => item.id === id)
     if (!connection) return
     const entry: LocalConnection = {}
@@ -764,7 +846,8 @@ export class Connections {
           entry.relayError = message
           this.localChanged(id, entry)
         },
-        () => this.store.effectiveDeviceName
+        () => this.store.effectiveDeviceName,
+        (payload) => this.showNotification(id, payload)
       )
       await entry.relay.connect()
       void this.startTerminal(id, entry)
@@ -862,6 +945,8 @@ export class Connections {
     this.pendingEvent?.finish('Tether is shutting down. Your handoff was not confirmed.')
     this.stopped = true
     this.sessions.stop()
+    for (const notification of this.notifications.values()) notification.close()
+    this.notifications.clear()
     for (const local of this.local.values()) {
       clearTimeout(local.retry)
       local.relay?.stop()

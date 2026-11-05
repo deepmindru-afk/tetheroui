@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "Преглед на промените",
   "settings.terminal.version": "Версия на Open Terminal",
   "settings.about.platform": "Платформа",
+  "settings.about.automaticUpdates": "Автоматични актуализации на Desktop",
+  "settings.about.automaticUpdatesDesc": "Автоматично изтегляне на актуализации на Desktop и инсталиране при изход.",
   "settings.about.softwareUpdate": "Актуализация на софтуера",
   "settings.about.managedUpdates": "Актуализациите се управляват от пакетния мениджър.",
   "settings.about.packagedUpdates": "Актуализациите са налични в пакетните версии.",

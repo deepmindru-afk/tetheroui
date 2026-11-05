@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "Wijzigingslog lezen",
   "settings.terminal.version": "Open Terminal-versie",
   "settings.about.platform": "Platform",
+  "settings.about.automaticUpdates": "Automatische desktopupdates",
+  "settings.about.automaticUpdatesDesc": "Download desktopupdates automatisch en installeer ze bij het afsluiten.",
   "settings.about.softwareUpdate": "Software-update",
   "settings.about.managedUpdates": "Updates worden beheerd door je pakketbeheerder.",
   "settings.about.packagedUpdates": "Updates zijn beschikbaar in verpakte versies.",

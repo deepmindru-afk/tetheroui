@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "Read changelog",
   "settings.terminal.version": "Open Terminal version",
   "settings.about.platform": "Platform",
+  "settings.about.automaticUpdates": "Automatic desktop updates",
+  "settings.about.automaticUpdatesDesc": "Download desktop updates automatically and install them when you quit.",
   "settings.about.softwareUpdate": "Software update",
   "settings.about.managedUpdates": "Updates are managed by your package manager.",
   "settings.about.packagedUpdates": "Updates are available in packaged builds.",

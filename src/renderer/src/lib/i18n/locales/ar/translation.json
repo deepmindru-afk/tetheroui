@@ -77,6 +77,8 @@
   "settings.about.readChangelog": "قراءة سجل التغييرات",
   "settings.terminal.version": "إصدار Open Terminal",
   "settings.about.platform": "المنصة",
+  "settings.about.automaticUpdates": "تحديثات سطح المكتب التلقائية",
+  "settings.about.automaticUpdatesDesc": "تنزيل تحديثات تطبيق سطح المكتب تلقائيًا وتثبيتها عند الخروج.",
   "settings.about.softwareUpdate": "تحديث البرنامج",
   "settings.about.managedUpdates": "يتولى مدير الحزم إدارة التحديثات.",
   "settings.about.packagedUpdates": "التحديثات متاحة في الإصدارات المعبأة.",

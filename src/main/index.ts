@@ -23,7 +23,8 @@ import {
   downloadUpdate,
   getUpdateState,
   initUpdater,
-  installUpdate
+  installUpdate,
+  setAutomaticUpdates
 } from './updater'
 import type { AppInfo } from '../shared/api'
 import { parseGeneralConfig, parseLocalServerConfig, type AppConfig } from '../shared/config'
@@ -245,6 +246,8 @@ function saveConfig(value: unknown, syncTheme = true): Promise<void> {
       registeredShortcuts[key] = next[key]
     }
     nativeTheme.themeSource = next.theme
+    if (next.automaticUpdates !== previous.automaticUpdates)
+      setAutomaticUpdates(next.automaticUpdates)
     mainWindow?.webContents.send('config:changed', {
       ...store.general,
       localServer: store.localServer
@@ -503,7 +506,7 @@ if (!app.requestSingleInstanceLock()) {
         (channel, state) => {
           if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(channel, state)
         },
-        true,
+        connections.store.general.automaticUpdates,
         () => {
           quitting = true
         }
