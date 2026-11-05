@@ -394,9 +394,9 @@ export class Relay {
           .then(() => socket.resume())
           .catch(() => this.closeStream(header.stream))
       })
-      socket.on('close', () => {
+      socket.on('close', (code) => {
         void output
-          .then(() => this.send(header.stream, 'end'))
+          .then(() => this.send(header.stream, 'end', { code }))
           .catch(() => {})
           .finally(() => this.closeStream(header.stream))
       })
