@@ -5,6 +5,7 @@ import type { UpdateState } from './updater'
 
 export interface AppInfo {
   deviceName: string
+  homeDirectory: string
   name: string
   version: string
   platform: NodeJS.Platform
@@ -31,6 +32,7 @@ export interface TetherAPI {
   resizeTerminal: (id: number, cols: number, rows: number) => void
   setSettingsOpen: (open: boolean) => Promise<void>
   getConfig: () => Promise<AppConfig>
+  selectDirectory: () => Promise<string | null>
   onConfigChanged: (callback: (config: AppConfig) => void) => () => void
   getLaunchAtLogin: () => Promise<boolean>
   setLaunchAtLogin: (enabled: boolean) => Promise<boolean>

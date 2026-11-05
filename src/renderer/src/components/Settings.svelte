@@ -33,7 +33,7 @@
       icon: TerminalIcon,
       group: 'Services',
       keywords:
-        'version latest install update auto-update local tools environment variables restart'
+        'version latest install update auto-update local tools environment variables restart home directory folder'
     },
     {
       id: 'about',

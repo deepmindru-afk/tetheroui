@@ -2,6 +2,7 @@ export interface LocalServerConfig {
   enabled: boolean
   version: string
   autoUpdate: boolean
+  homeDirectory?: string
   env?: Record<string, string>
 }
 
@@ -73,6 +74,11 @@ export function parseLocalServerConfig(value: unknown): LocalServerConfig {
     throw new Error('Invalid Open Terminal settings')
   if (typeof config.version !== 'string' || typeof config.autoUpdate !== 'boolean')
     throw new Error('Invalid Open Terminal settings')
+  if (
+    config.homeDirectory !== undefined &&
+    (typeof config.homeDirectory !== 'string' || config.homeDirectory.includes('\0'))
+  )
+    throw new Error('Invalid home directory')
   const version = config.version.trim() === 'latest' ? '' : config.version.trim()
   if (version && !/^[a-zA-Z0-9][a-zA-Z0-9.!+_-]{0,99}$/.test(version))
     throw new Error('Enter an Open Terminal version or leave it blank for latest.')
@@ -113,6 +119,7 @@ export function parseLocalServerConfig(value: unknown): LocalServerConfig {
     enabled: config.enabled ?? false,
     version,
     autoUpdate: config.autoUpdate,
+    homeDirectory: config.homeDirectory?.trim() ?? '',
     ...(env === undefined ? {} : { env: { ...env } })
   }
 }

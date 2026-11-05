@@ -11,7 +11,9 @@ import {
   shell,
   Tray
 } from 'electron'
-import { join } from 'node:path'
+import { isAbsolute, join } from 'node:path'
+import { homedir } from 'node:os'
+import { stat } from 'node:fs/promises'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import log from 'electron-log'
 import icon from '../../resources/icon.png?asset'
@@ -190,6 +192,7 @@ function registerIPC(): void {
     'app:info',
     (): AppInfo => ({
       deviceName: connections.store.deviceName,
+      homeDirectory: homedir(),
       name: app.name,
       version: app.getVersion(),
       platform: process.platform
@@ -199,6 +202,13 @@ function registerIPC(): void {
     'config:get',
     (): AppConfig => ({ ...connections.store.general, localServer: connections.store.localServer })
   )
+  handle('dialog:directory', async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      properties: ['openDirectory'],
+      defaultPath: connections.store.localServer.homeDirectory || homedir()
+    })
+    return result.canceled ? null : (result.filePaths[0] ?? null)
+  })
   handle('config:set', (value) => {
     const operation = savingConfig.then(async () => {
       if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -212,6 +222,13 @@ function registerIPC(): void {
         'localServer' in patch ? parseLocalServerConfig(patch.localServer) : previousServer
       if (localServer.enabled !== previousServer.enabled)
         throw new Error('Install Open Terminal from Settings to enable it.')
+      if (localServer.homeDirectory && localServer.homeDirectory !== previousServer.homeDirectory) {
+        if (!isAbsolute(localServer.homeDirectory))
+          throw new Error('Enter an absolute home directory path.')
+        const directory = await stat(localServer.homeDirectory).catch(() => null)
+        if (!directory?.isDirectory())
+          throw new Error('Choose an existing folder for the home directory.')
+      }
       const changedShortcut =
         next.globalShortcut !== previous.globalShortcut ||
         ('globalShortcut' in patch && next.globalShortcut !== registeredShortcut)

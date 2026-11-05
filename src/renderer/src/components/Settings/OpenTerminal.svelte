@@ -33,6 +33,8 @@
   }
 
   let version = $state('')
+  let homeDirectory = $state('')
+  let defaultHomeDirectory = $state('')
   let enabled = $state(false)
   let autoUpdate = $state(false)
   let env = $state<{ name: string; value: string }[]>([])
@@ -55,6 +57,7 @@
         enabled,
         version,
         autoUpdate,
+        homeDirectory,
         env: Object.fromEntries(entries.map((row) => [row.name.trim(), row.value]))
       })
     }
@@ -67,6 +70,18 @@
     void save().catch((cause) => {
       error = String(cause).replace(/^Error: /, '')
     })
+  }
+
+  async function chooseDirectory(): Promise<void> {
+    error = ''
+    try {
+      const directory = await window.api.selectDirectory()
+      if (directory === null) return
+      homeDirectory = directory
+      await save()
+    } catch (cause) {
+      error = String(cause).replace(/^Error: /, '')
+    }
   }
 
   async function restart(): Promise<void> {
@@ -121,10 +136,16 @@
     const unsubscribe = window.api.onRuntimeState((state) => {
       runtime = state
     })
-    void Promise.all([window.api.getConfig(), window.api.getRuntimeState()])
-      .then(([config, state]) => {
+    void Promise.all([
+      window.api.getConfig(),
+      window.api.getRuntimeState(),
+      window.api.getAppInfo()
+    ])
+      .then(([config, state, info]) => {
         if (disposed) return
         version = config.localServer.version
+        homeDirectory = config.localServer.homeDirectory ?? ''
+        defaultHomeDirectory = info.homeDirectory
         enabled = config.localServer.enabled
         autoUpdate = config.localServer.autoUpdate
         env = Object.entries(config.localServer.env ?? {}).map(([name, value]) => ({ name, value }))
@@ -223,6 +244,25 @@
     Optional. Install enables local files and commands for your connected Open WebUI instances.
     Update applies your selected version and restarts local terminals.
   </p>
+  <section class="mt-5" aria-label="Home directory">
+    <label for="terminal-home" class="text-[12px] leading-[16px] font-normal">Home directory</label>
+    <p class="mt-0.5 text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
+      Starting folder for files and commands. Leave blank to use your user folder.
+    </p>
+    <div class="mt-2 flex items-center gap-3">
+      <input
+        id="terminal-home"
+        class="env-input"
+        bind:value={homeDirectory}
+        placeholder={defaultHomeDirectory}
+        disabled={busy}
+        spellcheck="false"
+        autocapitalize="off"
+        onchange={saveSettings}
+      />
+      <button class="env-action shrink-0" disabled={busy} onclick={chooseDirectory}>Browse</button>
+    </div>
+  </section>
   <section class="mt-5" aria-label="Environment variables">
     <div class="flex items-center justify-between gap-4 py-[7px]">
       <h3 class="text-[12px] leading-[16px] font-normal">Environment variables</h3>

@@ -257,7 +257,7 @@ export class OpenTerminal {
           '--cors-allowed-origins',
           ''
         ],
-        cwd: homedir(),
+        cwd: this.getConfig().homeDirectory || homedir(),
         env: Object.fromEntries(
           Object.entries({
             ...this.environment(),
