@@ -20,10 +20,15 @@ export interface Credential {
   expiresAt: number | null
   sessionId?: string
   refreshToken?: string
+  refreshRequestId?: string
   refreshExpiresAt?: number
 }
 
 export class Store {
+  get effectiveDeviceName(): string {
+    return this.general.deviceName || this.deviceName
+  }
+
   deviceName = hostname().trim().slice(0, 100) || 'This computer'
   connections: Connection[] = []
   selected: string | null = null

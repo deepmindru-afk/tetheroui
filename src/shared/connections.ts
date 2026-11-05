@@ -11,6 +11,7 @@ export interface ConnectionState {
   selected: string | null
   title: string
   terminalStatus: ServiceStatus
+  webuiConnected: boolean
   errors: Record<string, string>
   persistentCredentials: boolean
 }

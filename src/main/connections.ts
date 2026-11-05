@@ -84,10 +84,14 @@ export class Connections {
 
   private state(): ConnectionState {
     const selected = this.store.connections.find((item) => item.id === this.store.selected)
+    const local = selected && this.local.get(selected.id)
     return {
       connections: this.store.connections,
       selected: this.store.selected,
       terminalStatus: this.terminal.getStatus(this.store.selected),
+      webuiConnected: Boolean(
+        local?.relay?.connected && local.handle?.service.info.status === 'started'
+      ),
       title: this.settingsOpen
         ? 'Settings'
         : (selected && this.titles.get(selected.id)) || selected?.name || 'Tether',
@@ -160,6 +164,7 @@ export class Connections {
     let installed = false
     const entries = [...this.local.values()]
     for (const entry of entries) {
+      if (!entry.relay && !entry.handle) continue
       clearTimeout(entry.retry)
       entry.retry = undefined
       entry.handle = undefined
@@ -548,7 +553,10 @@ export class Connections {
     this.local.set(id, entry)
     try {
       const access = await this.sessions.refresh(id)
-      if (!access) return
+      if (!access) {
+        if (this.local.get(id) === entry) this.local.delete(id)
+        return
+      }
       const response = await fetch(endpoint(connection.url, 'api/config'), {
         headers: { Authorization: 'Bearer ' + access.token },
         redirect: 'error',
@@ -556,7 +564,9 @@ export class Connections {
       })
       if (!response.ok) throw new Error('Could not reach WebUI.')
       const config = (await response.json()) as { features?: { tether?: boolean } }
-      if (!config.features?.tether || this.local.get(id) !== entry || this.stopped) return
+      if (this.local.get(id) !== entry || this.stopped) return
+      if (!config.features?.tether)
+        throw new Error('This WebUI does not support Tether yet. Retrying.')
       entry.relay = new Relay(
         connection,
         this.sessions,
@@ -564,7 +574,7 @@ export class Connections {
           entry.relayError = message
           this.localChanged(id, entry)
         },
-        () => this.store.general.deviceName || this.store.deviceName
+        () => this.store.effectiveDeviceName
       )
       await entry.relay.connect()
       void this.startTerminal(id, entry)
@@ -573,6 +583,7 @@ export class Connections {
         entry.relayError = String(error)
         this.localChanged(id, entry)
         entry.retry = setTimeout(() => {
+          if (this.local.get(id) !== entry || this.stopped) return
           this.local.delete(id)
           void this.ensureLocal(id)
         }, 30000)

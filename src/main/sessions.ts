@@ -1,6 +1,6 @@
 import { shell } from 'electron'
 import { createServer } from 'node:http'
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto'
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto'
 import { endpoint, type AccessToken, type Connection } from '../shared/connections'
 import { Store, type Credential } from './store'
 
@@ -79,7 +79,8 @@ export class Sessions {
     ) {
       throw new Error('Invalid session response')
     }
-    this.store.credentials[id] = {
+    const previous = this.store.credentials[id]
+    const credential: Credential = {
       userId,
       sessionId: response.session_id,
       token: response.token,
@@ -87,7 +88,17 @@ export class Sessions {
       refreshToken: response.refresh_token,
       refreshExpiresAt: response.refresh_expires_at
     }
-    await this.store.saveCredentials()
+    this.store.credentials[id] = credential
+    try {
+      await this.store.saveCredentials()
+    } catch (error) {
+      // Keep the pending refresh recoverable if saving its replacement fails.
+      if (this.store.credentials[id] === credential) {
+        if (previous) this.store.credentials[id] = previous
+        else delete this.store.credentials[id]
+      }
+      throw error
+    }
     this.unchanged(id, version)
     const access = { token: response.token, expiresAt: response.expires_at }
     this.changed(id, access)
@@ -116,9 +127,8 @@ export class Sessions {
     )
     this.unchanged(id, version)
     if (config.features?.auth_sessions) {
-      const connection = this.connection(id)
       const response = await this.request<SessionResponse>(id, 'api/v1/auths/sessions', token, {
-        name: connection.name
+        name: this.store.effectiveDeviceName
       })
       return this.accept(id, response, info.id, version)
     }
@@ -144,17 +154,26 @@ export class Sessions {
     const current = this.store.credentials[id]
     if (!current) return null
     const version = this.versions.get(id) ?? 0
-    if (!force && (current.expiresAt === null || current.expiresAt > Date.now() / 1000 + 90)) {
+    if (
+      !force &&
+      !current.refreshRequestId &&
+      (current.expiresAt === null || current.expiresAt > Date.now() / 1000 + 90)
+    ) {
       return { token: current.token, expiresAt: current.expiresAt }
     }
     if (!current.refreshToken) return { token: current.token, expiresAt: current.expiresAt }
     try {
+      current.refreshRequestId ??= randomUUID()
+      // Persist before sending so a restart can repeat the exact rotation request.
+      await this.store.saveCredentials()
+      this.unchanged(id, version)
       const response = await this.request<SessionResponse>(
         id,
         'api/v1/auths/sessions/refresh',
         undefined,
         {
-          refresh_token: current.refreshToken
+          refresh_token: current.refreshToken,
+          request_id: current.refreshRequestId
         }
       )
       return await this.accept(id, response, current.userId, version)
@@ -261,7 +280,7 @@ export class Sessions {
         'api/v1/auths/sessions/requests',
         undefined,
         {
-          name: connection.name,
+          name: this.store.effectiveDeviceName,
           redirect_uri: redirectURI,
           state,
           code_challenge: createHash('sha256').update(verifier).digest('base64url')

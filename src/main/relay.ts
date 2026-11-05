@@ -66,6 +66,7 @@ interface Stream {
 }
 
 export class Relay {
+  connected = false
   private socket?: WebSocket
   private streams = new Map<string, Stream>()
   private destinations = new Map<string, ResolveDestination>()
@@ -143,6 +144,7 @@ export class Relay {
           if (!binary) {
             const control = JSON.parse(bytes.toString())
             if (control.type === 'ready') {
+              this.connected = true
               this.delay = 1000
               this.status('')
             }
@@ -177,6 +179,7 @@ export class Relay {
   }
 
   private schedule(): void {
+    this.connected = false
     this.status('Local connection unavailable. Reconnecting.')
     clearTimeout(this.retry)
     this.retry = setTimeout(() => void this.connect(), this.delay)
@@ -411,6 +414,7 @@ export class Relay {
   }
 
   stop(): void {
+    this.connected = false
     this.stopped = true
     clearTimeout(this.retry)
     clearInterval(this.heartbeat)

@@ -18,6 +18,7 @@
     selected: null,
     title: 'Tether',
     terminalStatus: 'stopped',
+    webuiConnected: false,
     errors: {},
     persistentCredentials: true
   })
@@ -30,16 +31,25 @@
   let openTerminalInstalled = $state(false)
   const openTerminalRunning = $derived(state.terminalStatus === 'started')
   const activeTerminalTab = $derived(openTerminalRunning ? terminalTab : 'shell')
+  const terminalIndicator = $derived(
+    state.selected && openTerminalRunning && !state.webuiConnected
+      ? 'disconnected'
+      : state.terminalStatus
+  )
   const terminalStatusLabel = $derived(
     !openTerminalInstalled && state.terminalStatus === 'stopped'
       ? 'Not installed'
-      : {
-          started: 'Running',
-          starting: 'Starting',
-          stopping: 'Stopping',
-          stopped: 'Stopped',
-          failed: 'Failed'
-        }[state.terminalStatus]
+      : state.selected && openTerminalRunning
+        ? state.webuiConnected
+          ? 'Connected to WebUI'
+          : 'Running locally · Not connected to WebUI'
+        : {
+            started: 'Running',
+            starting: 'Starting',
+            stopping: 'Stopping',
+            stopped: 'Stopped',
+            failed: 'Failed'
+          }[state.terminalStatus]
   )
   let viewportHeight = $state(680)
   let panelHeight = $state(160)
@@ -491,7 +501,7 @@
       {#if openTerminalInstalled || state.terminalStatus !== 'stopped'}
         <span
           class="terminal-status"
-          data-status={state.terminalStatus}
+          data-status={terminalIndicator}
           role="status"
           aria-label={terminalStatusLabel}
         ></span>
@@ -910,7 +920,8 @@
   .terminal-status[data-status='failed'] {
     background: #ef4444;
   }
-  .terminal-status[data-status='stopped'] {
+  .terminal-status[data-status='stopped'],
+  .terminal-status[data-status='disconnected'] {
     width: 7px;
     height: 7px;
     background: transparent;
