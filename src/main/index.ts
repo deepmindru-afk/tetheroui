@@ -30,9 +30,10 @@ import { parseGeneralConfig, parseLocalServerConfig, type AppConfig } from '../s
 import { Connections } from './connections'
 import { Spotlight } from './spotlight'
 import { setTooltip } from './tooltip'
+import { attachContextMenu } from './contextMenu'
 
 app.setName('Tether')
-const connections = new Connections()
+const connections = new Connections((theme) => saveConfig({ theme }, false))
 log.initialize()
 log.errorHandler.startCatching()
 
@@ -106,6 +107,7 @@ function createMainWindow(show = true): void {
   window.on('restore', visibilityChanged)
   connections.attach(window)
   optimizer.watchWindowShortcuts(window)
+  attachContextMenu(window.webContents)
   window.once('ready-to-show', () => {
     if (show) window.show()
   })
@@ -147,6 +149,64 @@ function createMainWindow(show = true): void {
       ? window.loadURL(process.env.ELECTRON_RENDERER_URL)
       : window.loadFile(join(__dirname, '../renderer/index.html'))
   void loading.catch((error) => log.error('Could not load Tether:', error))
+}
+
+function saveConfig(value: unknown, syncTheme = true): Promise<void> {
+  const operation = savingConfig.then(async () => {
+    if (!value || typeof value !== 'object' || Array.isArray(value))
+      throw new Error('Invalid settings')
+    const patch = value as Partial<AppConfig>
+    const store = connections.store
+    const previous = store.general
+    const previousServer = store.localServer
+    const next = parseGeneralConfig({ ...previous, ...patch })
+    const localServer =
+      'localServer' in patch ? parseLocalServerConfig(patch.localServer) : previousServer
+    if (localServer.enabled !== previousServer.enabled)
+      throw new Error('Install Open Terminal from Settings to enable it.')
+    if (localServer.homeDirectory && localServer.homeDirectory !== previousServer.homeDirectory) {
+      if (!isAbsolute(localServer.homeDirectory))
+        throw new Error('Enter an absolute home directory path.')
+      const directory = await stat(localServer.homeDirectory).catch(() => null)
+      if (!directory?.isDirectory())
+        throw new Error('Choose an existing folder for the home directory.')
+    }
+    const changed = shortcutKeys.filter(
+      (key) =>
+        next[key] !== previous[key] || (key in patch && next[key] !== registeredShortcuts[key])
+    )
+    const reserved: string[] = []
+    try {
+      for (const key of changed) {
+        if (next[key]) {
+          registerShortcut(next[key], key === 'globalShortcut' ? showMainWindow : openSpotlight)
+          reserved.push(next[key])
+        }
+      }
+      store.general = next
+      store.localServer = localServer
+      await store.saveConfig()
+    } catch (error) {
+      store.general = previous
+      store.localServer = previousServer
+      for (const accelerator of reserved) globalShortcut.unregister(accelerator)
+      throw error
+    }
+    for (const key of changed) {
+      if (registeredShortcuts[key]) globalShortcut.unregister(registeredShortcuts[key])
+      registeredShortcuts[key] = next[key]
+    }
+    nativeTheme.themeSource = next.theme
+    mainWindow?.webContents.send('config:changed', {
+      ...store.general,
+      localServer: store.localServer
+    })
+    if (syncTheme && 'theme' in patch) connections.syncTheme(next.theme)
+    updateTray()
+    if (next.deviceName !== previous.deviceName) connections.updateDeviceName()
+  })
+  savingConfig = operation.catch(() => {})
+  return operation
 }
 
 function registerIPC(): void {
@@ -216,62 +276,7 @@ function registerIPC(): void {
     })
     return result.canceled ? null : (result.filePaths[0] ?? null)
   })
-  handle('config:set', (value) => {
-    const operation = savingConfig.then(async () => {
-      if (!value || typeof value !== 'object' || Array.isArray(value))
-        throw new Error('Invalid settings')
-      const patch = value as Partial<AppConfig>
-      const store = connections.store
-      const previous = store.general
-      const previousServer = store.localServer
-      const next = parseGeneralConfig({ ...previous, ...patch })
-      const localServer =
-        'localServer' in patch ? parseLocalServerConfig(patch.localServer) : previousServer
-      if (localServer.enabled !== previousServer.enabled)
-        throw new Error('Install Open Terminal from Settings to enable it.')
-      if (localServer.homeDirectory && localServer.homeDirectory !== previousServer.homeDirectory) {
-        if (!isAbsolute(localServer.homeDirectory))
-          throw new Error('Enter an absolute home directory path.')
-        const directory = await stat(localServer.homeDirectory).catch(() => null)
-        if (!directory?.isDirectory())
-          throw new Error('Choose an existing folder for the home directory.')
-      }
-      const changed = shortcutKeys.filter(
-        (key) =>
-          next[key] !== previous[key] || (key in patch && next[key] !== registeredShortcuts[key])
-      )
-      const reserved: string[] = []
-      try {
-        for (const key of changed) {
-          if (next[key]) {
-            registerShortcut(next[key], key === 'globalShortcut' ? showMainWindow : openSpotlight)
-            reserved.push(next[key])
-          }
-        }
-        store.general = next
-        store.localServer = localServer
-        await store.saveConfig()
-      } catch (error) {
-        store.general = previous
-        store.localServer = previousServer
-        for (const accelerator of reserved) globalShortcut.unregister(accelerator)
-        throw error
-      }
-      for (const key of changed) {
-        if (registeredShortcuts[key]) globalShortcut.unregister(registeredShortcuts[key])
-        registeredShortcuts[key] = next[key]
-      }
-      nativeTheme.themeSource = next.theme
-      mainWindow?.webContents.send('config:changed', {
-        ...store.general,
-        localServer: store.localServer
-      })
-      updateTray()
-      if (next.deviceName !== previous.deviceName) connections.updateDeviceName()
-    })
-    savingConfig = operation.catch(() => {})
-    return operation
-  })
+  handle('config:set', (value) => saveConfig(value))
   handle(
     'app:launchAtLogin:get',
     () => process.platform !== 'linux' && app.getLoginItemSettings().openAtLogin

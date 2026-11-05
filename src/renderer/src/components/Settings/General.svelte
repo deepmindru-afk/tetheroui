@@ -41,6 +41,9 @@
 
   onMount(() => {
     let disposed = false
+    const unsubscribe = window.api.onConfigChanged((saved) => {
+      config = saved
+    })
     void Promise.all([
       window.api.getConfig(),
       window.api.getAppInfo(),
@@ -59,6 +62,7 @@
       })
     return () => {
       disposed = true
+      unsubscribe()
     }
   })
 

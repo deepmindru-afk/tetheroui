@@ -27,7 +27,8 @@ import { Sessions } from './sessions'
 import { OpenTerminal, type TerminalHandle } from './terminal'
 import { Relay } from './relay'
 import { Store } from './store'
-import type { RuntimeState } from '../shared/config'
+import type { GeneralConfig, RuntimeState } from '../shared/config'
+import { attachContextMenu } from './contextMenu'
 import { validateEvent, type TetherEvent } from '../shared/events'
 
 interface LocalConnection {
@@ -68,6 +69,35 @@ export class Connections {
     payload: TetherEvent
     sent: boolean
     finish: (error?: string) => void
+  }
+
+  private themes = new Map<string, GeneralConfig['theme']>()
+  private pendingThemes = new Map<string, GeneralConfig['theme']>()
+
+  constructor(private themeChanged: (theme: GeneralConfig['theme']) => Promise<void>) {}
+
+  syncTheme(theme: GeneralConfig['theme']): void {
+    for (const id of this.views.keys()) {
+      this.themes.set(id, theme)
+      this.pendingThemes.set(id, theme)
+      this.deliverTheme(id)
+    }
+  }
+
+  private deliverTheme(id: string): void {
+    const theme = this.pendingThemes.get(id)
+    const connection = this.store.connections.find((item) => item.id === id)
+    const view = this.views.get(id)
+    if (
+      theme &&
+      connection &&
+      view &&
+      this.eventReady.has(id) &&
+      belongsToConnection(view.webContents.getURL(), connection.url)
+    ) {
+      this.pendingThemes.delete(id)
+      view.webContents.send('tether:event', null, { type: 'theme:update', data: { theme } })
+    }
   }
 
   async showConnection(id: string | null): Promise<void> {
@@ -421,10 +451,24 @@ export class Connections {
       this.sessions.refresh(this.guestSender(event), force === true)
     )
     ipcMain.handle('tether:logout', (event) => this.sessions.signedOut(this.guestSender(event)))
+    ipcMain.handle('tether:theme', async (event, value: unknown) => {
+      const id = this.guestSender(event)
+      if (
+        typeof value !== 'string' ||
+        !['system', 'light', 'dark', 'oled-dark', 'her'].includes(value)
+      )
+        throw new Error('Invalid theme')
+      if (this.pendingThemes.has(id)) return
+      const theme = value === 'system' ? 'system' : value.includes('dark') ? 'dark' : 'light'
+      this.themes.set(id, theme)
+      if (id === this.store.selected && theme !== this.store.general.theme)
+        await this.themeChanged(theme)
+    })
     ipcMain.handle('tether:event:ready', (event, ready: boolean) => {
       const id = this.guestSender(event)
       if (ready === true) this.eventReady.add(id)
       else this.eventReady.delete(id)
+      this.deliverTheme(id)
       this.deliverEvent()
     })
     ipcMain.handle('tether:event:ack', (event, requestId: string, error: string) => {
@@ -439,6 +483,8 @@ export class Connections {
 
   private async clearConnection(id: string): Promise<void> {
     this.eventReady.delete(id)
+    this.themes.delete(id)
+    this.pendingThemes.delete(id)
     if (this.pendingEvent?.connection.id === id)
       this.pendingEvent.finish('This connection changed. Select a saved connection and try again.')
     const view = this.views.get(id)
@@ -465,6 +511,8 @@ export class Connections {
     await this.store.saveConfig()
     if (id && !this.views.has(id))
       this.createView(this.store.connections.find((item) => item.id === id)!)
+    const theme = id && this.themes.get(id)
+    if (theme && theme !== this.store.general.theme) await this.themeChanged(theme)
     this.layout()
     this.emit()
   }
@@ -480,6 +528,7 @@ export class Connections {
       }
     })
     this.views.set(connection.id, view)
+    attachContextMenu(view.webContents)
     view.webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
       if (!isMainFrame || isInPlace) return
       this.eventReady.delete(connection.id)

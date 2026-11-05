@@ -8,7 +8,7 @@ const bridge: TetherBridge = {
   onEvent: (callback) => {
     const listener = async (
       _event: Electron.IpcRendererEvent,
-      id: string,
+      id: string | null,
       event
     ): Promise<void> => {
       let error = ''
@@ -17,7 +17,7 @@ const bridge: TetherBridge = {
       } catch (cause) {
         error = String(cause).slice(0, 500)
       }
-      await ipcRenderer.invoke('tether:event:ack', id, error).catch(() => {})
+      if (id) await ipcRenderer.invoke('tether:event:ack', id, error).catch(() => {})
     }
     ipcRenderer.on('tether:event', listener)
     void ipcRenderer.invoke('tether:event:ready', true).catch(() => {})
@@ -44,6 +44,26 @@ const bridge: TetherBridge = {
 
 if (process.isMainFrame) {
   contextBridge.exposeInMainWorld('tether', bridge)
+  // Reuse WebUI's existing theme notification hook, including changes between equal palettes.
+  let lastTheme = ''
+  const syncTheme = (): void => {
+    const theme = localStorage.getItem('theme') ?? 'system'
+    if (theme === lastTheme) return
+    lastTheme = theme
+    void ipcRenderer.invoke('tether:theme', theme).catch(() => {})
+  }
+  const scheduleTheme = (): void => queueMicrotask(syncTheme)
+  contextBridge.exposeInMainWorld('applyTheme', scheduleTheme)
+  window.addEventListener('DOMContentLoaded', () => {
+    const observer = new MutationObserver(scheduleTheme)
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class', 'style']
+    })
+    window.addEventListener('storage', scheduleTheme)
+    syncTheme()
+    window.addEventListener('pagehide', () => observer.disconnect(), { once: true })
+  })
   // Old WebUI versions have no bridge hooks. Observe their existing token lifecycle.
   let previous: string | null = null
   let working = false
