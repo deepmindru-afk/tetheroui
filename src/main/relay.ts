@@ -422,9 +422,13 @@ export class Relay {
       let output = ready
       let queuedMessages = 0
       socket.on('message', (data, binary) => {
+        if (stream.closed) return
         socket.pause()
         const message = Buffer.from(data as Buffer)
         if (queuedMessages >= 64 || this.queuedOutput + message.length > 32 * 1024 * 1024) {
+          void this.send(header.stream, 'error', {
+            message: 'Local output backlog exceeded.'
+          }).catch(() => {})
           this.closeStream(header.stream)
           return
         }
