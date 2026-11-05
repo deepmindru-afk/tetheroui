@@ -122,12 +122,13 @@ function createMainWindow(show = true): void {
   saveWindowState = () => {
     clearTimeout(boundsTimer)
     if (resetting || window.isDestroyed()) return Promise.resolve()
+    if (!window.isFullScreen()) normalBounds = window.getNormalBounds()
     return saveConfig({ windowBounds: normalBounds, windowMaximized: maximized })
   }
   const boundsChanged = (): void => {
     if (!window.isVisible() || window.isMinimized() || window.isFullScreen()) return
     maximized = window.isMaximized()
-    if (!maximized) normalBounds = window.getBounds()
+    if (!maximized) normalBounds = window.getNormalBounds()
     clearTimeout(boundsTimer)
     boundsTimer = setTimeout(() => {
       void saveWindowState().catch((error) => log.warn('Could not save window state:', error))
