@@ -8,6 +8,7 @@ import {
   nativeImage,
   nativeTheme,
   Notification,
+  screen,
   shell,
   Tray
 } from 'electron'
@@ -49,6 +50,7 @@ const openSpotlight = (): void => {
   void spotlight.toggle().catch((error) => log.warn('Could not open Spotlight:', error))
 }
 let savingConfig: Promise<void> = Promise.resolve()
+let saveWindowState: () => Promise<void> = () => Promise.resolve()
 
 function showMainWindow(): void {
   if (!mainWindow) createMainWindow()
@@ -64,10 +66,11 @@ function openExternal(url: string): void {
 }
 
 function createMainWindow(show = true): void {
-  const window = new BrowserWindow({
+  const saved = connections.store.general.windowBounds
+  const options: Electron.BrowserWindowConstructorOptions = {
     title: 'Tether',
-    width: 960,
-    height: 680,
+    width: saved?.width ?? 960,
+    height: saved?.height ?? 680,
     minWidth: 480,
     minHeight: 360,
     show: false,
@@ -92,8 +95,52 @@ function createMainWindow(show = true): void {
       backgroundThrottling: false,
       sandbox: true
     }
-  })
+  }
+  // Desktop's visible-overlap check avoids restoring onto a disconnected monitor.
+  if (
+    saved &&
+    screen
+      .getAllDisplays()
+      .some(
+        ({ workArea }) =>
+          Math.min(saved.x + saved.width, workArea.x + workArea.width) -
+            Math.max(saved.x, workArea.x) >=
+            100 &&
+          Math.min(saved.y + saved.height, workArea.y + workArea.height) -
+            Math.max(saved.y, workArea.y) >=
+            100
+      )
+  ) {
+    options.x = saved.x
+    options.y = saved.y
+  }
+  const window = new BrowserWindow(options)
   mainWindow = window
+  let normalBounds = window.getBounds()
+  let maximized = connections.store.general.windowMaximized
+  let boundsTimer: ReturnType<typeof setTimeout> | undefined
+  saveWindowState = () => {
+    clearTimeout(boundsTimer)
+    if (resetting || window.isDestroyed()) return Promise.resolve()
+    return saveConfig({ windowBounds: normalBounds, windowMaximized: maximized })
+  }
+  const boundsChanged = (): void => {
+    if (!window.isVisible() || window.isMinimized() || window.isFullScreen()) return
+    maximized = window.isMaximized()
+    if (!maximized) normalBounds = window.getBounds()
+    clearTimeout(boundsTimer)
+    boundsTimer = setTimeout(() => {
+      void saveWindowState().catch((error) => log.warn('Could not save window state:', error))
+    }, 500)
+  }
+  window.on('resize', boundsChanged)
+  window.on('move', boundsChanged)
+  window.on('maximize', boundsChanged)
+  window.on('unmaximize', boundsChanged)
+  window.on('leave-full-screen', boundsChanged)
+  window.on('closed', () => clearTimeout(boundsTimer))
+  // Maximizing shows the window, so defer it when starting in the background.
+  if (maximized) window.once('show', () => window.maximize())
   const visibilityChanged = (): void => {
     // Native visibility can settle after the event, and macOS also emits hide on occlusion.
     setImmediate(() => {
@@ -408,7 +455,10 @@ if (!app.requestSingleInstanceLock()) {
     shutdownStarted = true
     quitting = true
     spotlight.destroy()
-    void connections.stop().finally(() => app.quit())
+    void saveWindowState()
+      .catch((error) => log.warn('Could not save window state:', error))
+      .then(() => connections.stop())
+      .finally(() => app.quit())
   })
   app.on('will-quit', () => {
     globalShortcut.unregisterAll()

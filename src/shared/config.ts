@@ -17,6 +17,8 @@ export interface GeneralConfig {
   spotlightShortcut: string
   spotlightClipboardPaste: boolean
   spotlightPosition: { x: number; y: number } | null
+  windowBounds: { x: number; y: number; width: number; height: number } | null
+  windowMaximized: boolean
 }
 
 export const defaultGeneralConfig: GeneralConfig = {
@@ -29,7 +31,9 @@ export const defaultGeneralConfig: GeneralConfig = {
   globalShortcut: 'CommandOrControl+Shift+T',
   spotlightShortcut: 'CommandOrControl+Shift+I',
   spotlightClipboardPaste: false,
-  spotlightPosition: null
+  spotlightPosition: null,
+  windowBounds: null,
+  windowMaximized: false
 }
 
 export function parseGeneralConfig(value: unknown): GeneralConfig {
@@ -54,7 +58,8 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
     'startMinimized',
     'runInBackground',
     'showMenuBarIcon',
-    'spotlightClipboardPaste'
+    'spotlightClipboardPaste',
+    'windowMaximized'
   ] as const) {
     if (typeof config[key] !== 'boolean') throw new Error(`Invalid setting: ${key}`)
   }
@@ -68,6 +73,17 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
     (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y))
   )
     throw new Error('Invalid Spotlight position')
+  const bounds = config.windowBounds
+  if (
+    bounds !== null &&
+    (!bounds ||
+      ![bounds.x, bounds.y, bounds.width, bounds.height].every(
+        (value) => Number.isInteger(value) && Math.abs(value) <= 2_147_483_647
+      ) ||
+      bounds.width < 480 ||
+      bounds.height < 360)
+  )
+    throw new Error('Invalid window bounds')
   return {
     language: config.language,
     deviceName: config.deviceName.trim(),
@@ -78,7 +94,12 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
     globalShortcut: config.globalShortcut.trim(),
     spotlightShortcut: config.spotlightShortcut.trim(),
     spotlightClipboardPaste: config.spotlightClipboardPaste,
-    spotlightPosition: position === null ? null : { x: position.x, y: position.y }
+    spotlightPosition: position === null ? null : { x: position.x, y: position.y },
+    windowBounds:
+      bounds === null
+        ? null
+        : { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height },
+    windowMaximized: config.windowMaximized
   }
 }
 

@@ -2,7 +2,6 @@ import i18next from 'i18next'
 import resourcesToBackend from 'i18next-resources-to-backend'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { writable } from 'svelte/store'
-import english from './locales/en-US/translation.json'
 import languages from './locales/languages.json'
 
 const i18n = writable(i18next)
@@ -25,8 +24,6 @@ export async function initI18n(defaultLocale?: string): Promise<void> {
       lng: defaultLocale || undefined,
       supportedLngs: languages.map(({ code }) => code),
       fallbackLng: 'en-US',
-      resources: { 'en-US': { translation: english } },
-      partialBundledLanguages: true,
       ns: 'translation',
       detection: {
         order: ['querystring', 'localStorage', 'navigator'],
