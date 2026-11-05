@@ -276,7 +276,9 @@
                     <span class="connection-icon">{@render globe()}</span>
                     <span class="connection-details">
                       <span class="connection-name" dir="auto">{connection.name}</span>
-                      <span class="connection-url" dir="ltr" title={connection.url}>{connection.url}</span>
+                      <span class="connection-url" dir="ltr" title={connection.url}
+                        >{connection.url}</span
+                      >
                     </span>
                   </button>
                   <button

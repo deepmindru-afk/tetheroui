@@ -1,5 +1,6 @@
 import {
   app,
+  desktopCapturer,
   dialog,
   ipcMain,
   session,
@@ -547,6 +548,31 @@ export class Connections {
       }
     })
     this.views.set(connection.id, view)
+    view.webContents.session.setDisplayMediaRequestHandler(
+      (request, callback) => {
+        if (
+          request.frame !== view.webContents.mainFrame ||
+          !belongsToConnection(request.frame.url, connection.url)
+        ) {
+          callback(null)
+          return
+        }
+        void desktopCapturer.getSources({ types: ['screen'] }).then(
+          (sources) => {
+            if (!request.frame) return
+            callback(
+              sources[0]
+                ? { video: sources[0], ...(request.audioRequested ? { audio: 'loopback' } : {}) }
+                : null
+            )
+          },
+          () => {
+            if (request.frame) callback(null)
+          }
+        )
+      },
+      { useSystemPicker: true }
+    )
     attachContextMenu(view.webContents)
     view.webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
       if (!isMainFrame || isInPlace) return

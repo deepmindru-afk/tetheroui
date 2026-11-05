@@ -87,8 +87,10 @@
             class="flex h-[28px] flex-1 items-center gap-[6px] rounded-[8px] px-[8px] text-gray-800 transition-colors duration-75 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
             onclick={onClose}
           >
-            <span class="inline-flex size-[12px] shrink-0 [&>svg]:size-full" aria-hidden="true"
-               class:rotate-180={$i18n.dir() === 'rtl'}>{@html NavArrowLeftIcon}</span
+            <span
+              class="inline-flex size-[12px] shrink-0 [&>svg]:size-full"
+              aria-hidden="true"
+              class:rotate-180={$i18n.dir() === 'rtl'}>{@html NavArrowLeftIcon}</span
             >{$i18n.t('settings.back')}</button
           >
           <button
