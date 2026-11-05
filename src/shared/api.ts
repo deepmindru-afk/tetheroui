@@ -9,7 +9,16 @@ export interface AppInfo {
   platform: NodeJS.Platform
 }
 
+export interface TooltipInfo {
+  text: string
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
 export interface TetherAPI {
+  setTooltip: (tooltip: TooltipInfo | null) => Promise<void>
   onWindowVisibility: (callback: (visible: boolean) => void) => () => void
   setTerminalHeight: (height: number) => Promise<void>
   connectTerminal: (

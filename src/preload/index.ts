@@ -15,6 +15,7 @@ ipcRenderer.on('terminal:port', (event, id: number) => {
 })
 
 const api: TetherAPI = {
+  setTooltip: (tooltip) => ipcRenderer.invoke('window:tooltip', tooltip),
   onWindowVisibility: (callback) => {
     let active = true
     let received = false

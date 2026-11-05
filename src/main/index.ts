@@ -26,6 +26,7 @@ import type { AppInfo } from '../shared/api'
 import { parseGeneralConfig, parseLocalServerConfig, type AppConfig } from '../shared/config'
 
 import { Connections } from './connections'
+import { setTooltip } from './tooltip'
 
 app.setName('Tether')
 const connections = new Connections()
@@ -183,6 +184,7 @@ function registerIPC(): void {
       resetting = false
     }
   })
+  handle('window:tooltip', (value) => setTooltip(mainWindow, value))
   handle('window:visibility', () => !!mainWindow?.isVisible() && !mainWindow.isMinimized())
   handle(
     'app:info',
