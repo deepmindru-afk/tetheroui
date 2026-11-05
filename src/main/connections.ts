@@ -562,6 +562,34 @@ export class Connections {
       }
     })
     this.views.set(connection.id, view)
+    const canLocate = (
+      requester: Electron.WebContents | null,
+      details: { isMainFrame: boolean; requestingUrl?: string }
+    ): boolean =>
+      requester === view.webContents &&
+      !view.webContents.isDestroyed() &&
+      details.isMainFrame === true &&
+      belongsToConnection(details.requestingUrl ?? '', connection.url) &&
+      belongsToConnection(view.webContents.getURL(), connection.url)
+    view.webContents.session.setPermissionCheckHandler(
+      (requester, permission, requestingOrigin, details) => {
+        if (permission !== 'geolocation' && permission !== 'geolocation-approximate') return true
+        return (
+          belongsToConnection(requestingOrigin, new URL(connection.url).origin) &&
+          canLocate(requester, details)
+        )
+      }
+    )
+    view.webContents.session.setPermissionRequestHandler(
+      (requester, permission, callback, details) => {
+        // Keep other permissions unchanged; location belongs only to the saved WebUI page.
+        callback(
+          permission === 'geolocation' || permission === 'geolocation-approximate'
+            ? canLocate(requester, details)
+            : true
+        )
+      }
+    )
     view.webContents.session.setDisplayMediaRequestHandler(
       (request, callback) => {
         if (
