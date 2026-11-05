@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.0] - 2026-11-05
+
+### Added
+
+- **Spotlight for quick questions.** Press **Cmd+Shift+I** on macOS or **Ctrl+Shift+I** on Windows and Linux to open a small prompt window over your current app. Start typing immediately, choose one of your saved WebUI connections, and press Enter to send into a new chat. Tether opens that WebUI so you can continue the conversation. Change or disable the shortcut in Settings, or open Spotlight from the tray menu.
+- **Screenshots and pasted images.** Drag across part of your screen in Spotlight to attach a screenshot, or paste an image from your clipboard. Preview and remove attachments before sending, with up to four images per prompt. On Linux with a screen picker, choose a screen first, then select the area to capture. Open Terminal is not required.
+- **Clipboard text and saved Spotlight drafts.** Enable **Paste clipboard into Spotlight** in General settings to fill an empty prompt with copied text. Closing Spotlight keeps your unsent text, images, and chosen connection while Tether stays running. Failed or unconfirmed sends keep the draft too. Drag the prompt window to move it; Tether remembers its position.
+- **Background notifications.** Get alerts when a chat finishes or fails, a calendar reminder is due, or a channel message arrives, even when the relevant saved connection is not open. Clicking an alert brings up its chat, channel, or calendar in the correct connection. Notifications work without Open Terminal installed and continue after you uninstall it. Keep Tether running and enable notifications in WebUI to receive them.
+- **Screen sharing in WebUI calls.** Use WebUI's existing Screen Share control from inside Tether. The call panel shows a live preview and can attach a screenshot of your screen with each spoken turn.
+- **Right-click menus.** Cut, copy, paste, undo, redo, and choose spelling corrections in text fields. Right-click a link to copy it or open it in your browser, or right-click an image to copy or save it.
+- **Language selection.** Choose English, Arabic, Bulgarian, Dutch, French, German, Hebrew, Hindi, Italian, Japanese, Korean, Polish, Russian, Spanish, Simplified Chinese, or Traditional Chinese in General settings. Connection screens, Settings, Spotlight, and terminal controls use the selected language, with right-to-left layouts for Arabic and Hebrew.
+- **Automatic-update control.** Turn **Automatic desktop updates** on or off in About to choose whether Tether downloads app updates automatically. You can still check for updates and download them manually when it is off. Open Terminal's update setting remains separate.
+
+### Changed
+
+- **Matching appearance in Tether and WebUI.** Changing Tether's light, dark, or automatic appearance also updates open, compatible WebUI connections. Changing the appearance in WebUI updates Tether's surrounding window, and switching connections follows that connection's appearance.
+- **Remembered window size and position.** Tether reopens at its previous size and location, including whether it was maximized. If the monitor you used is disconnected, the window opens on an available display.
+
+### Fixed
+
+- **Browser startup through Tether.** Fixed a startup timing issue that could leave WebUI's browser panel blank or show an error when opening a browser on this computer.
+- **Recovery after app crashes.** Tether reloads its main window if the app interface crashes. After a graphics crash, it tries one restart with fallback graphics settings and remembers those settings for later launches.
+
 ## [0.0.1] - 2026-11-05
 
 ### Added
