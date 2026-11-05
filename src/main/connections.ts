@@ -1,5 +1,6 @@
 import {
   app,
+  dialog,
   ipcMain,
   session,
   shell,
@@ -85,6 +86,7 @@ export class Connections {
     return {
       connections: this.store.connections,
       selected: this.store.selected,
+      terminalStatus: this.terminal.getStatus(this.store.selected),
       title: this.settingsOpen
         ? 'Settings'
         : (selected && this.titles.get(selected.id)) || selected?.name || 'Tether',
@@ -124,12 +126,14 @@ export class Connections {
   }
 
   private shellSender(event: Pick<IpcMainInvokeEvent, 'sender' | 'senderFrame'>): void {
+    if (this.stopped) throw new Error('Tether is shutting down.')
     if (event.sender !== this.window?.webContents || event.senderFrame !== event.sender.mainFrame) {
       throw new Error('Unknown IPC sender')
     }
   }
 
   private guestSender(event: IpcMainInvokeEvent): string {
+    if (this.stopped) throw new Error('Tether is shutting down.')
     for (const [id, view] of this.views) {
       const connection = this.store.connections.find((item) => item.id === id)
       if (
@@ -146,6 +150,7 @@ export class Connections {
   private runtimeChanged(state: RuntimeState): void {
     if (this.window && !this.window.isDestroyed())
       this.window.webContents.send('runtime:state', state)
+    this.emit()
   }
 
   private async restartTerminal(update = false): Promise<void> {
@@ -245,7 +250,11 @@ export class Connections {
     })
     ipcMain.handle('runtime:install', (event) => {
       this.shellSender(event)
-      return this.restartTerminal(true)
+      return this.confirmInstall()
+    })
+    ipcMain.handle('runtime:uninstall', (event) => {
+      this.shellSender(event)
+      return this.uninstallTerminal()
     })
     ipcMain.handle('connections:list', (event) => {
       this.shellSender(event)
@@ -398,8 +407,82 @@ export class Connections {
     this.emit()
   }
 
+  private async confirmInstall(): Promise<void> {
+    if (!this.window || this.stopped || this.updatingRuntime) return
+    const { response } = await dialog.showMessageBox(this.window, {
+      type: 'question',
+      message: 'Install or update Open Terminal?',
+      detail: 'Install Open Terminal to enable local capabilities in Open WebUI.',
+      buttons: ['Cancel', 'Install'],
+      defaultId: 0,
+      cancelId: 0
+    })
+    if (response !== 1 || this.stopped) return
+    await this.restartTerminal(true)
+    if (this.stopped) return
+    if (!this.store.localServer.enabled) {
+      this.store.localServer.enabled = true
+      try {
+        await this.store.saveConfig()
+      } catch (error) {
+        this.store.localServer.enabled = false
+        throw error
+      }
+      this.window?.webContents.send('config:changed', {
+        ...this.store.general,
+        localServer: this.store.localServer
+      })
+    }
+    for (const id of Object.keys(this.store.credentials)) void this.ensureLocal(id)
+  }
+
+  private async uninstallTerminal(): Promise<void> {
+    if (!this.window || this.stopped || this.updatingRuntime) return
+    const { response } = await dialog.showMessageBox(this.window, {
+      type: 'question',
+      message: 'Uninstall Open Terminal?',
+      detail:
+        'This stops local terminals, disables local access and removes the Open Terminal package. Your files, saved WebUI connections and shared Python runtime are kept.',
+      buttons: ['Cancel', 'Uninstall'],
+      defaultId: 0,
+      cancelId: 0
+    })
+    if (response !== 1 || this.stopped || this.updatingRuntime) return
+    this.updatingRuntime = true
+    try {
+      const enabled = this.store.localServer.enabled
+      this.store.localServer.enabled = false
+      try {
+        await this.store.saveConfig()
+      } catch (error) {
+        this.store.localServer.enabled = enabled
+        throw error
+      }
+      this.window.webContents.send('config:changed', {
+        ...this.store.general,
+        localServer: this.store.localServer
+      })
+      for (const [id, entry] of this.local) {
+        clearTimeout(entry.retry)
+        entry.relay?.stop()
+        delete this.errors[id]
+      }
+      this.local.clear()
+      this.emit()
+      await this.terminal.uninstallPackage()
+    } finally {
+      this.updatingRuntime = false
+    }
+  }
+
   private async ensureLocal(id: string): Promise<void> {
-    if (this.stopped || this.local.has(id) || !this.sessions.credential(id)?.sessionId) return
+    if (
+      !this.store.localServer.enabled ||
+      this.stopped ||
+      this.local.has(id) ||
+      !this.sessions.credential(id)?.sessionId
+    )
+      return
     const connection = this.store.connections.find((item) => item.id === id)
     if (!connection) return
     const entry: LocalConnection = {}
@@ -435,6 +518,7 @@ export class Connections {
 
   private async startTerminal(id: string, entry: LocalConnection): Promise<void> {
     if (
+      !this.store.localServer.enabled ||
       this.stopped ||
       this.updatingRuntime ||
       this.local.get(id) !== entry ||
@@ -485,6 +569,17 @@ export class Connections {
     } finally {
       entry.starting = false
     }
+  }
+
+  async reset(): Promise<void> {
+    await this.stop()
+    for (const view of this.views.values()) {
+      this.window?.contentView.removeChildView(view)
+      view.webContents.close()
+    }
+    this.views.clear()
+    await Promise.all(Object.keys(this.store.credentials).map((id) => this.sessions.signedOut(id)))
+    await this.store.requestReset()
   }
 
   async stop(): Promise<void> {

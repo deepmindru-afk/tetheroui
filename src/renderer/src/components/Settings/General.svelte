@@ -12,6 +12,8 @@
   let loaded = $state(false)
   let busy = $state(false)
   let recording = $state(false)
+  let advancedOpen = $state(false)
+  let resetting = $state(false)
   let error = $state('')
   const toggles = [
     {
@@ -81,6 +83,18 @@
       error = String(cause).replace(/^Error: /, '')
     } finally {
       busy = false
+    }
+  }
+
+  async function reset(): Promise<void> {
+    resetting = true
+    error = ''
+    try {
+      await window.api.resetApp()
+    } catch (cause) {
+      error = String(cause).replace(/^Error: /, '')
+    } finally {
+      resetting = false
     }
   }
 
@@ -231,6 +245,34 @@
       {/if}
     </div>
   </div>
+  <div class="pt-1">
+    <button
+      class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
+      aria-expanded={advancedOpen}
+      aria-controls="advanced-settings"
+      onclick={() => (advancedOpen = !advancedOpen)}
+    >
+      <span
+        aria-hidden="true"
+        class="inline-flex size-[12px] shrink-0 items-center justify-center leading-none transition-transform duration-200 [&>svg]:size-full"
+        class:-rotate-90={!advancedOpen}>{@html NavArrowDownIcon}</span
+      >
+      <span class="setting-label">Advanced</span>
+    </button>
+    {#if advancedOpen}
+      <div id="advanced-settings" class="flex flex-col">
+        <div class="setting-row">
+          <div>
+            <div class="setting-label">Factory reset</div>
+            <p class="setting-description">Remove runtimes, packages, data &amp; connections</p>
+          </div>
+          <button class="reset-button" disabled={!loaded || busy || resetting} onclick={reset}
+            >{resetting ? 'Resetting…' : 'Reset'}</button
+          >
+        </div>
+      </div>
+    {/if}
+  </div>
   {#if error}<p
       class="mt-2 text-[11px] leading-[16px] text-red-600 dark:text-red-400 break-words select-text"
       role="alert"
@@ -240,6 +282,26 @@
 </div>
 
 <style>
+  .reset-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-size: 12px;
+    line-height: 16px;
+    color: oklch(0.69 0 0);
+    transition: color 150ms;
+  }
+  .reset-button:hover {
+    color: oklch(0.2 0 0);
+  }
+  :global(.dark) .reset-button:hover {
+    color: white;
+  }
+  .reset-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
   .general-settings {
     display: flex;
     flex-direction: column;

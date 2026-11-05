@@ -1,5 +1,5 @@
 import { app, safeStorage } from 'electron'
-import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import {
@@ -24,13 +24,30 @@ export class Store {
   connections: Connection[] = []
   selected: string | null = null
   general: GeneralConfig = { ...defaultGeneralConfig }
-  localServer: LocalServerConfig = { version: '', autoUpdate: true }
+  localServer: LocalServerConfig = { enabled: false, version: '', autoUpdate: false }
   credentials: Record<string, Credential> = {}
   persistentCredentials = false
   private queue: Promise<void> = Promise.resolve()
+  private resetting = false
   private directory = join(app.getPath('userData'), 'data')
+  private resetPath = join(app.getPath('userData'), 'reset')
 
   async load(): Promise<void> {
+    const reset = await access(this.resetPath).then(
+      () => true,
+      (error) => {
+        if (error.code === 'ENOENT') return false
+        throw error
+      }
+    )
+    if (reset) {
+      // Run before opening browser profiles, which remain locked until exit on Windows.
+      for (const name of ['python', 'node', 'profiles'])
+        await rm(join(app.getPath('userData'), name), { recursive: true, force: true })
+      // Remove the marker last so interrupted resets finish on the next launch.
+      await rm(this.directory, { recursive: true, force: true })
+      await rm(this.resetPath)
+    }
     await mkdir(this.directory, { recursive: true })
     try {
       const config = JSON.parse(await readFile(join(this.directory, 'config.json'), 'utf8'))
@@ -74,6 +91,7 @@ export class Store {
   }
 
   private write(name: string, content: () => Promise<string | Buffer>): Promise<void> {
+    if (this.resetting) return Promise.reject(new Error('Tether is resetting.'))
     const operation = this.queue.then(async () => {
       const temporary = join(this.directory, name + '.' + randomUUID() + '.tmp')
       try {
@@ -85,6 +103,17 @@ export class Store {
     })
     this.queue = operation.catch(() => {})
     return operation
+  }
+
+  async requestReset(): Promise<void> {
+    this.resetting = true
+    await this.queue
+    try {
+      await writeFile(this.resetPath, '', { mode: 0o600 })
+    } catch (error) {
+      this.resetting = false
+      throw error
+    }
   }
 
   saveConfig(): Promise<void> {

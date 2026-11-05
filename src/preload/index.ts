@@ -53,6 +53,7 @@ const api: TetherAPI = {
   setConfig: (config) => ipcRenderer.invoke('config:set', config),
   getRuntimeState: () => ipcRenderer.invoke('runtime:state'),
   installPackage: () => ipcRenderer.invoke('runtime:install'),
+  uninstallPackage: () => ipcRenderer.invoke('runtime:uninstall'),
   restartTerminal: () => ipcRenderer.invoke('runtime:restart'),
   onRuntimeState: (callback) => {
     const handler = (_event: Electron.IpcRendererEvent, state: RuntimeState): void =>
@@ -70,6 +71,7 @@ const api: TetherAPI = {
     ipcRenderer.on('connections:state', handler)
     return () => ipcRenderer.removeListener('connections:state', handler)
   },
+  resetApp: () => ipcRenderer.invoke('app:reset'),
   getAppInfo: () => ipcRenderer.invoke('app:info'),
   getUpdateState: () => ipcRenderer.invoke('update:state'),
   checkForUpdates: () => ipcRenderer.invoke('update:check'),

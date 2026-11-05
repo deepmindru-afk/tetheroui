@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   globalShortcut,
   ipcMain,
   Menu,
@@ -35,6 +36,7 @@ let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
 let quitting = false
 let shutdownStarted = false
+let resetting = false
 let registeredShortcut = ''
 let savingConfig: Promise<void> = Promise.resolve()
 
@@ -147,9 +149,40 @@ function registerIPC(): void {
       ) {
         throw new Error('Unknown IPC sender')
       }
+      if (quitting) throw new Error('Tether is shutting down.')
       return callback(...args)
     })
   }
+  handle('app:reset', async () => {
+    if (resetting || !mainWindow) return
+    resetting = true
+    try {
+      const { response } = await dialog.showMessageBox(mainWindow, {
+        type: 'warning',
+        message: 'Factory reset?',
+        detail:
+          'This will remove Tether’s installed runtimes and packages, settings, saved connections, and local sign-in data. Tether will restart. Your hosted WebUI data and personal files will not be deleted.',
+        buttons: ['Cancel', 'Reset'],
+        defaultId: 0,
+        cancelId: 0
+      })
+      if (response !== 1 || quitting) return
+      quitting = true
+      await savingConfig
+      if (process.platform !== 'linux') app.setLoginItemSettings({ openAtLogin: false })
+      await connections.reset()
+      await mainWindow.webContents.session.clearStorageData()
+      await mainWindow.webContents.session.clearCache()
+      app.relaunch()
+      app.quit()
+    } catch (error) {
+      quitting = false
+      log.error('Factory reset failed:', error)
+      throw new Error('Factory reset failed. Quit and reopen Tether to try again. ' + String(error))
+    } finally {
+      resetting = false
+    }
+  })
   handle('window:visibility', () => !!mainWindow?.isVisible() && !mainWindow.isMinimized())
   handle(
     'app:info',
@@ -174,6 +207,8 @@ function registerIPC(): void {
       const next = parseGeneralConfig({ ...previous, ...patch })
       const localServer =
         'localServer' in patch ? parseLocalServerConfig(patch.localServer) : previousServer
+      if (localServer.enabled !== previousServer.enabled)
+        throw new Error('Install Open Terminal from Settings to enable it.')
       const changedShortcut =
         next.globalShortcut !== previous.globalShortcut ||
         ('globalShortcut' in patch && next.globalShortcut !== registeredShortcut)

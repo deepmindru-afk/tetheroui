@@ -33,15 +33,17 @@
   }
 
   let version = $state('')
-  let autoUpdate = $state(true)
+  let enabled = $state(false)
+  let autoUpdate = $state(false)
   let env = $state<{ name: string; value: string }[]>([])
   let restarting = $state(false)
   let runtime = $state<RuntimeState>({ version: null, status: '', busy: false, error: '' })
   let loaded = $state(false)
   let installing = $state(false)
+  let uninstalling = $state(false)
   let error = $state('')
   let saving: Promise<void> = Promise.resolve()
-  const busy = $derived(runtime.busy || installing || restarting || !loaded)
+  const busy = $derived(runtime.busy || installing || uninstalling || restarting || !loaded)
 
   async function save(): Promise<void> {
     const entries = env.filter((row) => row.name.trim() || row.value)
@@ -50,6 +52,7 @@
       throw new Error('Environment variable names must be unique.')
     const config = {
       localServer: parseLocalServerConfig({
+        enabled,
         version,
         autoUpdate,
         env: Object.fromEntries(entries.map((row) => [row.name.trim(), row.value]))
@@ -86,10 +89,30 @@
       await save()
       await window.api.installPackage()
       runtime = await window.api.getRuntimeState()
+      enabled = (await window.api.getConfig()).localServer.enabled
     } catch (cause) {
       error = String(cause).replace(/^Error: /, '')
     } finally {
       installing = false
+    }
+  }
+
+  async function uninstall(): Promise<void> {
+    uninstalling = true
+    error = ''
+    try {
+      await saving.catch(() => {})
+      await window.api.uninstallPackage()
+    } catch (cause) {
+      error = String(cause).replace(/^Error: /, '')
+    } finally {
+      try {
+        runtime = await window.api.getRuntimeState()
+        enabled = (await window.api.getConfig()).localServer.enabled
+      } catch (cause) {
+        error = String(cause).replace(/^Error: /, '')
+      }
+      uninstalling = false
     }
   }
 
@@ -102,6 +125,7 @@
       .then(([config, state]) => {
         if (disposed) return
         version = config.localServer.version
+        enabled = config.localServer.enabled
         autoUpdate = config.localServer.autoUpdate
         env = Object.entries(config.localServer.env ?? {}).map(([name, value]) => ({ name, value }))
         runtime = state
@@ -137,7 +161,11 @@
       class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
       disabled={busy}
       onclick={install}
-      >{busy && loaded ? 'Installing…' : runtime.version ? 'Update' : 'Install'}</button
+      >{installing || (runtime.busy && !uninstalling)
+        ? 'Installing…'
+        : runtime.version && enabled
+          ? 'Update'
+          : 'Install'}</button
     >
   </div>
   <div
@@ -192,6 +220,7 @@
   <p
     class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5 mt-3!"
   >
+    Optional. Install enables local files and commands for your connected Open WebUI instances.
     Update applies your selected version and restarts local terminals.
   </p>
   <section class="mt-5" aria-label="Environment variables">
@@ -265,11 +294,28 @@
       <p class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
         Saved on this device. Changes apply when Open Terminal restarts.
       </p>
-      <button class="env-action shrink-0" disabled={busy || !runtime.version} onclick={restart}
-        >{restarting ? 'Restarting…' : 'Restart to apply'}</button
+      <button
+        class="env-action shrink-0"
+        disabled={busy || !runtime.version || !enabled}
+        onclick={restart}>{restarting ? 'Restarting…' : 'Restart to apply'}</button
       >
     </div>
   </section>
+  {#if runtime.version || enabled}
+    <div class="mt-[10px] flex min-w-0 items-center justify-between gap-[16px] pt-[16px] pb-[7px]">
+      <div>
+        <div class="text-[12px] leading-[16px] font-normal">Uninstall</div>
+        <p
+          class="mt-0.5 text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]"
+        >
+          Remove the Open Terminal package.
+        </p>
+      </div>
+      <button class="env-action shrink-0" disabled={busy} onclick={uninstall}>
+        {uninstalling ? 'Uninstalling…' : 'Uninstall'}
+      </button>
+    </div>
+  {/if}
   {#if runtime.status}<p
       class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5 mt-2! break-words select-text"
       role="status"

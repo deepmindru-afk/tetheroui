@@ -1,3 +1,5 @@
+import type { ServiceStatus } from './terminal'
+
 export interface Connection {
   id: string
   name: string
@@ -8,6 +10,7 @@ export interface ConnectionState {
   connections: Connection[]
   selected: string | null
   title: string
+  terminalStatus: ServiceStatus
   errors: Record<string, string>
   persistentCredentials: boolean
 }

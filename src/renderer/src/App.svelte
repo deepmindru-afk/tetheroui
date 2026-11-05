@@ -1,6 +1,7 @@
 <script lang="ts">
   /* eslint-disable svelte/no-at-html-tags -- Icons are static SVG imports from Iconoir. */
   import { onMount } from 'svelte'
+  import { tooltip } from './actions/tooltip'
   import Settings from './components/Settings.svelte'
   import Terminal from './components/Terminal.svelte'
   import TetherBackground from './components/TetherBackground.svelte'
@@ -15,16 +16,30 @@
     connections: [],
     selected: null,
     title: 'Tether',
+    terminalStatus: 'stopped',
     errors: {},
     persistentCredentials: true
   })
   let appInfo = $state<AppInfo | null>(null)
   let windowVisible = $state(true)
   let settingsOpen = $state(false)
+  let settingsTab = $state('general')
   let terminalOpen = $state(false)
   let terminalTab = $state<'service' | 'shell'>('service')
   let openTerminalInstalled = $state(false)
-  const activeTerminalTab = $derived(openTerminalInstalled ? terminalTab : 'shell')
+  const openTerminalRunning = $derived(state.terminalStatus === 'started')
+  const activeTerminalTab = $derived(openTerminalRunning ? terminalTab : 'shell')
+  const terminalStatusLabel = $derived(
+    !openTerminalInstalled && state.terminalStatus === 'stopped'
+      ? 'Not installed'
+      : {
+          started: 'Running',
+          starting: 'Starting',
+          stopping: 'Stopping',
+          stopped: 'Stopped',
+          failed: 'Failed'
+        }[state.terminalStatus]
+  )
   let viewportHeight = $state(680)
   const dockHeight = $derived(Math.min(160, Math.max(0, viewportHeight - 160)))
 
@@ -54,9 +69,10 @@
     }
   }
 
-  async function toggleSettings(open: boolean): Promise<void> {
+  async function toggleSettings(open: boolean, tab = 'general'): Promise<void> {
     await run(async () => {
       await window.api.setSettingsOpen(open)
+      if (open) settingsTab = tab
       settingsOpen = open
     })
   }
@@ -151,7 +167,7 @@
     <button
       class="refresh-button"
       aria-label="Refresh"
-      title="Refresh"
+      use:tooltip={'Refresh'}
       disabled={!state.selected || busy}
       onclick={() => run(() => window.api.reloadConnection())}
     >
@@ -205,7 +221,7 @@
                         >Cancel</button
                       >
                       <button
-                        class="text-button destructive"
+                        class="text-button"
                         disabled={busy}
                         onclick={() =>
                           run(async () => {
@@ -277,6 +293,19 @@
           </p>
         {/if}
         {#if error}<p class="message destructive" role="alert">{error}</p>{/if}
+        {#if !openTerminalInstalled}
+          <section class="terminal-setup" aria-label="Open Terminal">
+            <div>
+              <h2>Open Terminal</h2>
+              <p>Let Open WebUI run commands and work with files on this computer.</p>
+            </div>
+            <button
+              class="text-button"
+              disabled={busy}
+              onclick={() => toggleSettings(true, 'terminal')}>Set up</button
+            >
+          </section>
+        {/if}
       </div>
     {/if}
   </main>
@@ -293,7 +322,7 @@
           class="connection-tab"
           class:active={state.selected === connection.id}
           aria-current={state.selected === connection.id ? 'page' : undefined}
-          title={connection.url}
+          use:tooltip={connection.url}
           disabled={busy}
           onclick={() => run(() => window.api.selectConnection(connection.id))}
         >
@@ -307,7 +336,7 @@
           <button
             class="browser-button"
             aria-label="Open in browser"
-            title="Open in browser"
+            use:tooltip={'Open in browser'}
             onclick={() => window.open(connection.url, '_blank', 'noopener,noreferrer')}
           >
             <svg
@@ -329,7 +358,7 @@
       <button
         class="add-button"
         aria-label="Add connection"
-        title="Add connection"
+        use:tooltip={'Add connection'}
         disabled={busy}
         onclick={() => run(() => window.api.selectConnection(null))}>{@render plus()}</button
       >
@@ -345,7 +374,7 @@
       class="manage-button"
       class:active={terminalOpen}
       aria-label="Inspect terminal"
-      title="Inspect terminal"
+      use:tooltip={terminalStatusLabel}
       aria-expanded={terminalOpen}
       aria-controls="terminal-output"
       onclick={() => (terminalOpen = !terminalOpen)}
@@ -353,14 +382,30 @@
       <span class="inline-flex size-[12px] shrink-0 [&>svg]:size-full" aria-hidden="true"
         >{@html TerminalIcon}</span
       >
+      {#if openTerminalInstalled || state.terminalStatus !== 'stopped'}
+        <span
+          class="terminal-status"
+          data-status={state.terminalStatus}
+          role="status"
+          aria-label={terminalStatusLabel}
+        ></span>
+      {/if}
     </button>
-    {#if appInfo?.version}<span class="version">v{appInfo.version}</span>{/if}
+    {#if appInfo?.version}
+      <button
+        class="version"
+        use:tooltip={'About Tether'}
+        onclick={() => toggleSettings(true, 'about')}
+      >
+        v{appInfo.version}
+      </button>
+    {/if}
     <button
       class="terminal-toggle"
       aria-expanded={terminalOpen}
       aria-controls="terminal-output"
       aria-label={terminalOpen ? 'Collapse terminal' : 'Expand terminal'}
-      title={terminalOpen ? 'Collapse terminal' : 'Expand terminal'}
+      use:tooltip={terminalOpen ? 'Collapse terminal' : 'Expand terminal'}
       onclick={() => (terminalOpen = !terminalOpen)}
     >
       <span
@@ -382,7 +427,7 @@
           : 'Open Terminal setup'}
     >
       <nav class="terminal-tabs" aria-label="Terminal views">
-        {#if openTerminalInstalled}
+        {#if openTerminalRunning}
           <button
             class:active={activeTerminalTab === 'service'}
             aria-pressed={activeTerminalTab === 'service'}
@@ -405,7 +450,7 @@
   {/if}
 </div>
 
-{#if settingsOpen}<Settings onClose={() => void toggleSettings(false)} />{/if}
+{#if settingsOpen}<Settings bind:settingsTab onClose={() => void toggleSettings(false)} />{/if}
 
 <style>
   .terminal-tabs {
@@ -494,6 +539,25 @@
   }
   .saved-connections {
     margin-bottom: 28px;
+  }
+  .terminal-setup {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-top: 28px;
+  }
+  .terminal-setup h2 {
+    margin-bottom: 4px;
+    font-size: 12px;
+  }
+  .terminal-setup p {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 16px;
+  }
+  .terminal-setup button {
+    flex-shrink: 0;
+    margin-left: auto;
   }
   section + section {
     margin-top: 12px;
@@ -623,8 +687,7 @@
     gap: 12px;
     margin-top: 8px;
   }
-  .destructive,
-  .text-button.destructive:hover {
+  .destructive {
     color: var(--text-danger);
   }
   .message {
@@ -673,6 +736,27 @@
   }
   .manage-button {
     padding: 0 8px;
+  }
+  .terminal-status {
+    width: 7px;
+    height: 7px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--bar-muted);
+  }
+  .terminal-status[data-status='started'] {
+    background: #22c55e;
+  }
+  .terminal-status[data-status='starting'],
+  .terminal-status[data-status='stopping'] {
+    background: #d99a19;
+  }
+  .terminal-status[data-status='failed'] {
+    background: #ef4444;
+  }
+  .terminal-status[data-status='stopped'] {
+    background: transparent;
+    border: 1px dotted var(--bar-muted);
   }
   nav {
     display: flex;
@@ -741,7 +825,7 @@
   .version {
     flex-shrink: 0;
     padding: 0 8px;
-    -webkit-app-region: drag;
+    -webkit-app-region: no-drag;
   }
   @media (prefers-reduced-motion: reduce) {
     input {

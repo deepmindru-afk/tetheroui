@@ -6,6 +6,7 @@ import { createServer } from 'node:net'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { LocalServerConfig, RuntimeState } from '../shared/config'
+import type { ServiceStatus } from '../shared/terminal'
 import { Runtime } from './runtime'
 import type { RelayDestination } from './relay'
 import { ManagedService, waitForReady } from './process/managedService'
@@ -28,7 +29,11 @@ export class OpenTerminal {
   private handles = new Map<string, TerminalHandle>()
 
   constructor(
-    private getConfig: () => LocalServerConfig = () => ({ version: '', autoUpdate: true }),
+    private getConfig: () => LocalServerConfig = () => ({
+      enabled: false,
+      version: '',
+      autoUpdate: false
+    }),
     private changed: (state: RuntimeState) => void = () => {},
     private output: (id: string | null, data: string) => void = () => {}
   ) {}
@@ -87,6 +92,38 @@ export class OpenTerminal {
     await this.install(() => {}, true)
   }
 
+  async uninstallPackage(): Promise<void> {
+    if (this.closed) throw new Error('Open Terminal is shutting down')
+    const stopped = this.runtime.stop()
+    await Promise.all([stopped, ...[...this.services.values()].map((service) => service.stop())])
+    await this.installation?.catch(() => {})
+    if (this.closed) throw new Error('Open Terminal is shutting down')
+    this.installation = undefined
+    this.handles.clear()
+    this.runtime = new Runtime('python', (data) => this.append(data))
+    this.setState({ busy: true, status: 'Uninstalling Open Terminal…', error: '' })
+    try {
+      await this.runtime.uninstallPackage('open-terminal', (status) => this.setState({ status }))
+      await rm(join(this.runtime.directory, '.install-incomplete'), { force: true })
+      this.setState({ version: null })
+    } catch (error) {
+      this.setState({ error: String(error).replace(/^Error: /, '') })
+      throw error
+    } finally {
+      this.setState({ busy: false, status: '' })
+    }
+  }
+
+  getStatus(id: string | null): ServiceStatus {
+    if (id !== null) return this.services.get(id)?.info.status ?? 'stopped'
+    const statuses = [...this.services.values()].map((service) => service.info.status)
+    return (
+      (['started', 'starting', 'stopping', 'failed'] as const).find((status) =>
+        statuses.includes(status)
+      ) ?? 'stopped'
+    )
+  }
+
   getService(id: string | null): ManagedService {
     let service = this.services.get(id)
     if (!service) {
@@ -103,6 +140,8 @@ export class OpenTerminal {
         if (event.type === 'output') {
           log.info('[terminal ' + (id ?? 'setup') + '] ' + event.data)
           this.output(id, event.data)
+        } else if (event.type === 'state') {
+          this.changed({ ...this.state })
         }
       })
       if (id !== null) service.append(this.getService(null).logs)

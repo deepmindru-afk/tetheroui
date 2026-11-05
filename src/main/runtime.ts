@@ -200,6 +200,34 @@ export class Runtime {
     )
   }
 
+  async uninstallPackage(
+    name: string,
+    status: (message: string) => void = () => {}
+  ): Promise<void> {
+    this.validatePackage(name, '')
+    this.signal.throwIfAborted()
+    const exists = await access(this.executable).then(
+      () => true,
+      () => false
+    )
+    if (!exists) return
+    await this.runInstaller(
+      this.kind === 'python'
+        ? ['-m', 'uv', 'pip', 'uninstall', '--python', this.executable, name]
+        : [
+            this.npm,
+            'uninstall',
+            '--prefix',
+            join(this.directory, 'packages'),
+            '--no-audit',
+            '--no-fund',
+            '--package-lock=false',
+            name
+          ],
+      status
+    )
+  }
+
   private validatePackage(name: string, version: string): void {
     const valid =
       this.kind === 'python'

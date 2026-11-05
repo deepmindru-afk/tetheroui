@@ -1,7 +1,9 @@
 <script lang="ts">
-  /* eslint-disable svelte/no-at-html-tags -- Icons are static SVG imports from Iconoir. */
+  /* eslint-disable svelte/no-at-html-tags -- Changelog text is escaped before formatting; icons are static SVG imports. */
   import { onMount } from 'svelte'
   import RefreshIcon from 'iconoir/icons/refresh.svg?raw'
+  import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
+  import changelog from '../../../../../CHANGELOG.md?raw'
   import type { AppInfo } from '../../../../shared/api'
   import type { UpdateState } from '../../../../shared/updater'
 
@@ -9,6 +11,23 @@
   let terminalVersion = $state<string | null>(null)
   let update = $state<UpdateState>({ status: 'idle' })
   let error = $state('')
+  let changelogDialog: HTMLDialogElement
+  const notes = changelog.replace(/^# Changelog\s*/i, '').trim()
+  const formattedNotes = notes
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    .split(/\r?\n/)
+    .map((line) => {
+      if (line.startsWith('## ')) return `<h3>${line.slice(3)}</h3>`
+      if (line.startsWith('### ')) return `<h4>${line.slice(4)}</h4>`
+      if (line.startsWith('- ')) return `<li>${line.slice(2)}</li>`
+      return line.trim() ? `<p>${line}</p>` : ''
+    })
+    .join('')
+    .replace(/(?:<li>.*?<\/li>)+/g, '<ul>$&</ul>')
 
   async function run(operation: () => Promise<void>): Promise<void> {
     error = ''
@@ -49,8 +68,15 @@
 
 <div class="flex flex-col">
   <div class="flex min-w-0 items-center justify-between gap-[16px] py-[7px] max-sm:gap-[12px]">
-    <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
-      Tether version
+    <div>
+      <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
+        Tether version
+      </div>
+      <button
+        onclick={() => changelogDialog.showModal()}
+        class="mt-0.5 inline-block text-[11px] leading-[16px] text-[oklch(0.51_0_0)] transition-colors hover:text-[oklch(0.2_0_0)] dark:text-[oklch(0.77_0_0)] dark:hover:text-white"
+        >Read changelog</button
+      >
     </div>
     <div class="text-[12px]">{info?.version ?? '…'}</div>
   </div>
@@ -141,3 +167,44 @@
     Copyright © {new Date().getFullYear()} Open WebUI Inc.
   </p>
 </div>
+
+<dialog
+  bind:this={changelogDialog}
+  aria-label="Changelog"
+  class="m-auto max-h-[calc(100dvh-64px)] w-[calc(100%-48px)] max-w-[560px] flex-col overflow-hidden rounded-[24px] border-none bg-white p-0 text-[#171717] shadow-2xl open:flex backdrop:bg-black/40 backdrop:backdrop-blur-sm dark:bg-[oklch(0.2_0_0)] dark:text-white"
+  oncancel={(event) => {
+    event.preventDefault()
+    event.stopPropagation()
+    changelogDialog.close()
+  }}
+  onkeydown={(event) => {
+    if (event.key === 'Escape') event.stopPropagation()
+  }}
+  onclick={(event) => {
+    if (event.target === changelogDialog) changelogDialog.close()
+  }}
+>
+  <div class="flex shrink-0 items-center justify-between gap-4 px-[20px] pt-[20px] pb-[12px]">
+    <h2 class="text-[14px] leading-[20px] font-medium">Changelog</h2>
+    <button
+      class="inline-flex size-[24px] items-center justify-center rounded-[8px] text-gray-500 hover:text-gray-900 dark:hover:text-white"
+      aria-label="Close changelog"
+      onclick={() => changelogDialog.close()}
+    >
+      <span aria-hidden="true" class="inline-flex size-[14px] [&>svg]:size-full"
+        >{@html XmarkIcon}</span
+      >
+    </button>
+  </div>
+  <div class="min-h-0 overflow-y-auto px-[20px] pb-[20px] text-[12px] leading-[18px] select-text">
+    {#if notes}
+      <div
+        class="[&_h3]:mt-[20px] [&_h3]:font-medium [&_h3:first-child]:mt-0 [&_h4]:mt-[10px] [&_h4]:mb-[4px] [&_h4]:font-medium [&_ul]:list-disc [&_ul]:pl-[16px] [&_li+li]:mt-[2px] [&_p]:mt-[6px] [&_code]:rounded [&_code]:bg-black/5 [&_code]:px-1 dark:[&_code]:bg-white/5"
+      >
+        {@html formattedNotes}
+      </div>
+    {:else}
+      <p class="text-gray-500 dark:text-gray-400">No release notes yet.</p>
+    {/if}
+  </div>
+</dialog>

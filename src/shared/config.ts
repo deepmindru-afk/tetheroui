@@ -1,4 +1,5 @@
 export interface LocalServerConfig {
+  enabled: boolean
   version: string
   autoUpdate: boolean
   env?: Record<string, string>
@@ -57,6 +58,8 @@ export interface RuntimeState {
 export function parseLocalServerConfig(value: unknown): LocalServerConfig {
   if (!value || typeof value !== 'object') throw new Error('Invalid Open Terminal settings')
   const config = value as LocalServerConfig
+  if (config.enabled !== undefined && typeof config.enabled !== 'boolean')
+    throw new Error('Invalid Open Terminal settings')
   if (typeof config.version !== 'string' || typeof config.autoUpdate !== 'boolean')
     throw new Error('Invalid Open Terminal settings')
   const version = config.version.trim() === 'latest' ? '' : config.version.trim()
@@ -96,6 +99,7 @@ export function parseLocalServerConfig(value: unknown): LocalServerConfig {
     }
   }
   return {
+    enabled: config.enabled ?? false,
     version,
     autoUpdate: config.autoUpdate,
     ...(env === undefined ? {} : { env: { ...env } })

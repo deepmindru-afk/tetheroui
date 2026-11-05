@@ -11,9 +11,11 @@
   import SettingsIcon from 'iconoir/icons/settings.svg?raw'
   import About from './Settings/About.svelte'
 
-  let { onClose }: { onClose: () => void } = $props()
+  let {
+    onClose,
+    settingsTab = $bindable('general')
+  }: { onClose: () => void; settingsTab?: string } = $props()
   let dialog: HTMLDialogElement
-  let settingsTab = $state('general')
   let search = $state('')
   let showSearch = $state(false)
   const tabs = [
@@ -23,7 +25,7 @@
       icon: SettingsIcon,
       group: null,
       keywords:
-        'appearance theme auto light dark login minimized background menu bar icon keyboard shortcut'
+        'appearance theme auto light dark login minimized background menu bar icon keyboard shortcut advanced factory reset'
     },
     {
       id: 'terminal',
@@ -38,7 +40,7 @@
       label: 'About',
       icon: InfoCircleIcon,
       group: null,
-      keywords: 'Tether version platform software update GitHub'
+      keywords: 'Tether version platform software update changelog GitHub'
     }
   ]
   const filteredTabs = $derived(

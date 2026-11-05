@@ -27,6 +27,7 @@ export interface TetherAPI {
   setConfig: (config: Partial<AppConfig>) => Promise<void>
   getRuntimeState: () => Promise<RuntimeState>
   installPackage: () => Promise<void>
+  uninstallPackage: () => Promise<void>
   restartTerminal: () => Promise<void>
   onRuntimeState: (callback: (state: RuntimeState) => void) => () => void
   listConnections: () => Promise<ConnectionState>
@@ -35,6 +36,7 @@ export interface TetherAPI {
   reloadConnection: () => Promise<void>
   removeConnection: (id: string) => Promise<void>
   onConnectionState: (callback: (state: ConnectionState) => void) => () => void
+  resetApp: () => Promise<void>
   getAppInfo: () => Promise<AppInfo>
   getUpdateState: () => Promise<UpdateState>
   checkForUpdates: () => Promise<void>
