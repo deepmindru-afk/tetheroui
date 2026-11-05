@@ -14,6 +14,7 @@ import {
 } from 'electron'
 import { isAbsolute, join } from 'node:path'
 import { homedir } from 'node:os'
+import { existsSync, writeFileSync } from 'node:fs'
 import { stat } from 'node:fs/promises'
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
 import log from 'electron-log'
@@ -38,6 +39,26 @@ app.setName('Tether')
 const connections = new Connections((theme) => saveConfig({ theme }, false))
 log.initialize()
 log.errorHandler.startCatching()
+
+// Retry Linux's default graphics after an Electron upgrade, as Desktop does.
+const gpuCrashMarkerPath = join(
+  app.getPath('userData'),
+  process.platform === 'linux'
+    ? `.gpu-sandbox-disabled-${process.versions.electron}`
+    : '.gpu-sandbox-disabled'
+)
+const gpuSandboxDisabled =
+  existsSync(gpuCrashMarkerPath) || app.commandLine.hasSwitch('disable-gpu-sandbox')
+
+if (gpuSandboxDisabled) {
+  log.info('Applying saved GPU crash workaround')
+  app.commandLine.appendSwitch('disable-gpu-sandbox')
+  if (process.platform === 'linux' && !app.commandLine.hasSwitch('use-angle')) {
+    app.commandLine.appendSwitch('use-gl', 'angle')
+    app.commandLine.appendSwitch('use-angle', 'swiftshader')
+  }
+}
+app.disableDomainBlockingFor3DAPIs()
 
 let mainWindow: BrowserWindow | null = null
 let tray: Tray | null = null
@@ -191,6 +212,7 @@ function createMainWindow(show = true): void {
   })
   window.webContents.on('render-process-gone', (_event, details) => {
     log.error('Renderer exited:', details)
+    if (details.reason !== 'clean-exit' && !quitting) window.webContents.reload()
   })
 
   const loading =
@@ -447,6 +469,25 @@ function registerShortcut(accelerator: string, callback: () => void): void {
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
+  app.on('child-process-gone', (_event, details) => {
+    if (details.type !== 'GPU') return
+    log.error('GPU process exited:', details)
+    if (
+      gpuSandboxDisabled ||
+      quitting ||
+      !['crashed', 'launch-failed', 'abnormal-exit'].includes(details.reason)
+    )
+      return
+    quitting = true
+    try {
+      writeFileSync(gpuCrashMarkerPath, new Date().toISOString(), 'utf8')
+    } catch (error) {
+      log.warn('Could not save GPU crash workaround:', error)
+    }
+    app.relaunch({ args: [...process.argv.slice(1), '--disable-gpu-sandbox'] })
+    // Use Tether's shutdown path so local runtimes and terminals stop before relaunching.
+    app.quit()
+  })
   app.on('second-instance', () => {
     if (app.isReady()) showMainWindow()
   })
