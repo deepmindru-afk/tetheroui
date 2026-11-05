@@ -14,6 +14,7 @@
   let state = $state<ConnectionState>({
     connections: [],
     selected: null,
+    title: 'Tether',
     errors: {},
     persistentCredentials: true
   })
@@ -140,9 +141,13 @@
 
 <svelte:window bind:innerHeight={viewportHeight} />
 
+<svelte:head>
+  <title>{state.title}</title>
+</svelte:head>
+
 <div class="shell" style:--titlebar-height={appInfo?.platform === 'darwin' ? '28px' : '32px'}>
   <header class="titlebar" title={selected?.url}>
-    <span>{selected?.name ?? 'Tether'}</span>
+    <span>{state.title}</span>
     <button
       class="refresh-button"
       aria-label="Refresh"

@@ -55,6 +55,7 @@ export class Connections {
   private settingsOpen = false
   private stopped = false
   private views = new Map<string, WebContentsView>()
+  private titles = new Map<string, string>()
   private errors: Record<string, string> = {}
   private window?: BrowserWindow
 
@@ -80,9 +81,13 @@ export class Connections {
   }
 
   private state(): ConnectionState {
+    const selected = this.store.connections.find((item) => item.id === this.store.selected)
     return {
       connections: this.store.connections,
       selected: this.store.selected,
+      title: this.settingsOpen
+        ? 'Settings'
+        : (selected && this.titles.get(selected.id)) || selected?.name || 'Tether',
       errors: this.errors,
       persistentCredentials: this.store.persistentCredentials
     }
@@ -228,6 +233,7 @@ export class Connections {
       if (typeof open !== 'boolean') throw new Error('Invalid settings state')
       this.settingsOpen = open
       this.layout()
+      this.emit()
     })
     ipcMain.handle('runtime:state', (event) => {
       this.shellSender(event)
@@ -288,6 +294,7 @@ export class Connections {
       }
       this.store.connections = this.store.connections.filter((item) => item.id !== id)
       delete this.errors[id]
+      this.titles.delete(id)
       await this.terminal.remove(id)
       if (this.store.selected === id) this.store.selected = this.store.connections[0]?.id ?? null
       await this.store.saveConfig()
@@ -325,6 +332,10 @@ export class Connections {
     })
     this.views.set(connection.id, view)
     this.window!.contentView.addChildView(view)
+    view.webContents.on('page-title-updated', (_event, title, explicitSet) => {
+      this.titles.set(connection.id, explicitSet ? title.trim() : '')
+      if (this.store.selected === connection.id) this.emit()
+    })
     const navigate = (event: Electron.Event, address: string): void => {
       if (belongsToConnection(address, connection.url)) {
         const url = new URL(address)

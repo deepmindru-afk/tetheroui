@@ -7,6 +7,7 @@ export interface Connection {
 export interface ConnectionState {
   connections: Connection[]
   selected: string | null
+  title: string
   errors: Record<string, string>
   persistentCredentials: boolean
 }
