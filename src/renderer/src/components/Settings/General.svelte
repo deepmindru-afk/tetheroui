@@ -12,11 +12,16 @@
   let launchAtLogin = $state(false)
   let loaded = $state(false)
   let busy = $state(false)
-  let recording = $state(false)
+  let recording = $state<'globalShortcut' | 'spotlightShortcut' | null>(null)
   let advancedOpen = $state(false)
   let resetting = $state(false)
   let error = $state('')
   const toggles = [
+    {
+      key: 'spotlightClipboardPaste',
+      label: 'Paste clipboard into Spotlight',
+      description: 'Prefill an empty Spotlight draft with clipboard text.'
+    },
     {
       key: 'startMinimized',
       label: 'Start minimized',
@@ -102,15 +107,16 @@
 
   function recordShortcut(event: KeyboardEvent): void {
     if (!recording) return
+    const keySetting = recording
     event.preventDefault()
     event.stopPropagation()
     if (event.key === 'Escape') {
-      recording = false
+      recording = null
       return
     }
     if (event.key === 'Backspace' || event.key === 'Delete') {
-      recording = false
-      void save({ globalShortcut: '' })
+      recording = null
+      void save({ [keySetting]: '' })
       return
     }
     if (['Control', 'Meta', 'Alt', 'Shift'].includes(event.key)) return
@@ -145,17 +151,16 @@
           ? event.code.slice(5)
           : event.key)
     parts.push(key)
-    recording = false
-    void save({ globalShortcut: parts.join('+') })
+    recording = null
+    void save({ [keySetting]: parts.join('+') })
   }
 
-  const shortcut = $derived(
-    config.globalShortcut
+  const shortcut = (value: string): string =>
+    value
       .replace(/CommandOrControl/g, platform === 'darwin' ? '⌘' : 'Ctrl')
       .replace(/Alt/g, platform === 'darwin' ? '⌥' : 'Alt')
       .replace(/Shift/g, platform === 'darwin' ? '⇧' : 'Shift')
       .replace(/\+/g, ' + ')
-  )
 </script>
 
 <div class="general-settings">
@@ -226,41 +231,50 @@
       </div>
     {/if}
   {/each}
-  <div class="setting-row">
-    <div>
-      <div class="setting-label">Open Tether shortcut</div>
-      <p class="setting-description">Bring Tether to the foreground from any app.</p>
-    </div>
-    <div class="shortcut-controls">
-      <button
-        class="shortcut-button"
-        class:animate-pulse={recording}
-        aria-label="Open Tether shortcut"
-        aria-pressed={recording}
-        disabled={!loaded || busy}
-        onclick={() => {
-          recording = true
-          error = ''
-        }}
-        onkeydown={recordShortcut}
-        onblur={() => (recording = false)}
-      >
-        {recording ? 'Press a shortcut…' : shortcut || 'Disabled'}
-      </button>
-      {#if config.globalShortcut && !recording}
+  {#each [{ key: 'globalShortcut', label: 'Open Tether shortcut', description: 'Bring Tether to the foreground from any app.' }, { key: 'spotlightShortcut', label: 'Open Spotlight shortcut', description: 'Send a prompt, screenshot or clipboard image to WebUI.' }] as setting (setting.key)}
+    <div class="setting-row">
+      <div>
+        <div class="setting-label">{setting.label}</div>
+        <p class="setting-description">{setting.description}</p>
+      </div>
+      <div class="shortcut-controls">
         <button
-          class="clear-shortcut"
-          aria-label="Clear shortcut"
-          title="Clear shortcut"
+          class="shortcut-button"
+          class:animate-pulse={recording === setting.key}
+          aria-label={setting.label}
+          aria-pressed={recording === setting.key}
           disabled={!loaded || busy}
-          onclick={() => save({ globalShortcut: '' })}
+          onclick={() => {
+            recording = setting.key as typeof recording
+            error = ''
+          }}
+          onkeydown={recordShortcut}
+          onblur={() => (recording = null)}
         >
-          <span aria-hidden="true" class="inline-flex size-[12px] [&>svg]:size-full"
-            >{@html XmarkIcon}</span
-          >
+          {recording === setting.key
+            ? 'Press a shortcut…'
+            : shortcut(config[setting.key]) || 'Disabled'}
         </button>
-      {/if}
+        {#if config[setting.key] && recording !== setting.key}
+          <button
+            class="clear-shortcut"
+            aria-label={`Clear ${setting.label}`}
+            title="Clear shortcut"
+            disabled={!loaded || busy}
+            onclick={() => save({ [setting.key]: '' })}
+          >
+            <span aria-hidden="true" class="inline-flex size-[12px] [&>svg]:size-full"
+              >{@html XmarkIcon}</span
+            >
+          </button>
+        {/if}
+      </div>
     </div>
+  {/each}
+  <div class="setting-row">
+    <button class="shortcut-button" onclick={() => window.api.openSpotlight()}
+      >Open Spotlight</button
+    >
   </div>
   <div class="pt-[16px]">
     <button

@@ -144,6 +144,10 @@
   }
 
   onMount(() => {
+    const unsubscribeShow = window.api.onShowConnection(() => {
+      settingsOpen = false
+      setupDialog?.close()
+    })
     const unsubscribeVisibility = window.api.onWindowVisibility((visible) => {
       windowVisible = visible
     })
@@ -196,6 +200,7 @@
       unsubscribeConfig()
       unsubscribeRuntime()
       unsubscribeVisibility()
+      unsubscribeShow()
       media.removeEventListener('change', applyTheme)
     }
   })

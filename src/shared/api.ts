@@ -20,6 +20,8 @@ export interface TooltipInfo {
 }
 
 export interface TetherAPI {
+  openSpotlight: () => Promise<void>
+  onShowConnection: (callback: () => void) => () => void
   setTooltip: (tooltip: TooltipInfo | null) => Promise<void>
   onWindowVisibility: (callback: (visible: boolean) => void) => () => void
   setTerminalHeight: (height: number) => Promise<void>

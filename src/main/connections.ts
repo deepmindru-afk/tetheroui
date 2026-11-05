@@ -28,6 +28,7 @@ import { OpenTerminal, type TerminalHandle } from './terminal'
 import { Relay } from './relay'
 import { Store } from './store'
 import type { RuntimeState } from '../shared/config'
+import { validateEvent, type TetherEvent } from '../shared/events'
 
 interface LocalConnection {
   relay?: Relay
@@ -59,6 +60,69 @@ export class Connections {
   private titles = new Map<string, string>()
   private errors: Record<string, string> = {}
   private window?: BrowserWindow
+  private eventReady = new Set<string>()
+  private pendingEvent?: {
+    id: string
+    connection: Connection
+    userId: string
+    payload: TetherEvent
+    sent: boolean
+    finish: (error?: string) => void
+  }
+
+  async showConnection(id: string | null): Promise<void> {
+    this.settingsOpen = false
+    this.window?.webContents.send('connections:show')
+    await this.select(id)
+  }
+
+  async sendEvent(connection: Connection, payload: TetherEvent): Promise<void> {
+    validateEvent(payload)
+    const saved = this.store.connections.find((item) => item.id === connection?.id)
+    if (!saved || saved.url !== connection.url)
+      throw new Error('This connection changed. Select a saved connection and try again.')
+    if (this.pendingEvent) throw new Error('A handoff is already in progress.')
+    await this.showConnection(saved.id)
+    const userId = this.store.credentials[saved.id]?.userId
+    if (!userId)
+      throw new Error(
+        'Sign in to this WebUI, then reopen Spotlight and send again. Your draft is kept.'
+      )
+    return new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingEvent?.finish(
+          'WebUI did not confirm the handoff. Check the chat before retrying. Update WebUI if it does not support Spotlight.'
+        )
+      }, 30_000)
+      this.pendingEvent = {
+        id: randomUUID(),
+        connection: { ...saved },
+        userId,
+        payload,
+        sent: false,
+        finish: (error) => {
+          clearTimeout(timer)
+          this.pendingEvent = undefined
+          if (error) reject(new Error(error))
+          else resolve()
+        }
+      }
+      this.deliverEvent()
+    })
+  }
+
+  private deliverEvent(): void {
+    const pending = this.pendingEvent
+    if (!pending || pending.sent || !this.eventReady.has(pending.connection.id)) return
+    const { id, connection, payload } = pending
+    const view = this.views.get(connection.id)
+    if (this.store.credentials[connection.id]?.userId !== pending.userId) {
+      pending.finish('The signed-in account changed. Review the destination and send again.')
+    } else if (view && belongsToConnection(view.webContents.getURL(), connection.url)) {
+      pending.sent = true
+      view.webContents.send('tether:event', id, payload)
+    }
+  }
 
   async initialize(): Promise<void> {
     await this.store.load()
@@ -111,6 +175,13 @@ export class Connections {
   }
 
   private tokenChanged(id: string, access: AccessToken | null): void {
+    if (
+      this.pendingEvent?.connection.id === id &&
+      (!access || this.store.credentials[id]?.userId !== this.pendingEvent.userId)
+    )
+      this.pendingEvent.finish(
+        'The signed-in account changed. Review the destination and send again.'
+      )
     delete this.errors[id]
     if (access) {
       this.local.get(id)?.relay?.updateToken(access.token)
@@ -350,9 +421,26 @@ export class Connections {
       this.sessions.refresh(this.guestSender(event), force === true)
     )
     ipcMain.handle('tether:logout', (event) => this.sessions.signedOut(this.guestSender(event)))
+    ipcMain.handle('tether:event:ready', (event, ready: boolean) => {
+      const id = this.guestSender(event)
+      if (ready === true) this.eventReady.add(id)
+      else this.eventReady.delete(id)
+      this.deliverEvent()
+    })
+    ipcMain.handle('tether:event:ack', (event, requestId: string, error: string) => {
+      const id = this.guestSender(event)
+      const pending = this.pendingEvent
+      if (pending?.connection.id !== id || pending.id !== requestId || !pending.sent) return
+      pending.finish(
+        typeof error === 'string' ? error.slice(0, 500) : 'Invalid WebUI acknowledgement.'
+      )
+    })
   }
 
   private async clearConnection(id: string): Promise<void> {
+    this.eventReady.delete(id)
+    if (this.pendingEvent?.connection.id === id)
+      this.pendingEvent.finish('This connection changed. Select a saved connection and try again.')
     const view = this.views.get(id)
     const profile =
       view?.webContents.session ?? session.fromPath(join(app.getPath('userData'), 'profiles', id))
@@ -392,6 +480,14 @@ export class Connections {
       }
     })
     this.views.set(connection.id, view)
+    view.webContents.on('did-start-navigation', (_event, _url, isInPlace, isMainFrame) => {
+      if (!isMainFrame || isInPlace) return
+      this.eventReady.delete(connection.id)
+      if (this.pendingEvent?.connection.id === connection.id && this.pendingEvent.sent)
+        this.pendingEvent.finish(
+          'WebUI navigated before confirming. Check the chat before retrying.'
+        )
+    })
     this.window!.contentView.addChildView(view)
     view.webContents.on('page-title-updated', (_event, title, explicitSet) => {
       this.titles.set(connection.id, explicitSet ? title.trim() : '')
@@ -669,6 +765,7 @@ export class Connections {
   }
 
   async stop(): Promise<void> {
+    this.pendingEvent?.finish('Tether is shutting down. Your handoff was not confirmed.')
     this.stopped = true
     this.sessions.stop()
     for (const local of this.local.values()) {

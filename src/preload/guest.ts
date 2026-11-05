@@ -1,10 +1,31 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { TetherAuthBridge } from '../shared/connections'
+import type { TetherBridge } from '../shared/connections'
 
 let managed = false
 
-const bridge: TetherAuthBridge = {
+const bridge: TetherBridge = {
   version: 1,
+  onEvent: (callback) => {
+    const listener = async (
+      _event: Electron.IpcRendererEvent,
+      id: string,
+      event
+    ): Promise<void> => {
+      let error = ''
+      try {
+        await callback(event)
+      } catch (cause) {
+        error = String(cause).slice(0, 500)
+      }
+      await ipcRenderer.invoke('tether:event:ack', id, error).catch(() => {})
+    }
+    ipcRenderer.on('tether:event', listener)
+    void ipcRenderer.invoke('tether:event:ready', true).catch(() => {})
+    return () => {
+      ipcRenderer.removeListener('tether:event', listener)
+      void ipcRenderer.invoke('tether:event:ready', false).catch(() => {})
+    }
+  },
   signedIn: (token) => {
     managed = true
     return ipcRenderer.invoke('tether:login', token)

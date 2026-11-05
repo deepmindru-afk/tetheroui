@@ -15,6 +15,12 @@ ipcRenderer.on('terminal:port', (event, id: number) => {
 })
 
 const api: TetherAPI = {
+  openSpotlight: () => ipcRenderer.invoke('spotlight:open'),
+  onShowConnection: (callback) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('connections:show', listener)
+    return () => ipcRenderer.removeListener('connections:show', listener)
+  },
   setTooltip: (tooltip) => ipcRenderer.invoke('window:tooltip', tooltip),
   onWindowVisibility: (callback) => {
     let active = true

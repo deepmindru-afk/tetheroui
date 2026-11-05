@@ -13,6 +13,9 @@ export interface GeneralConfig {
   runInBackground: boolean
   showMenuBarIcon: boolean
   globalShortcut: string
+  spotlightShortcut: string
+  spotlightClipboardPaste: boolean
+  spotlightPosition: { x: number; y: number } | null
 }
 
 export const defaultGeneralConfig: GeneralConfig = {
@@ -21,7 +24,10 @@ export const defaultGeneralConfig: GeneralConfig = {
   startMinimized: false,
   runInBackground: true,
   showMenuBarIcon: true,
-  globalShortcut: 'CommandOrControl+Shift+T'
+  globalShortcut: 'CommandOrControl+Shift+T',
+  spotlightShortcut: 'CommandOrControl+Shift+I',
+  spotlightClipboardPaste: false,
+  spotlightPosition: null
 }
 
 export function parseGeneralConfig(value: unknown): GeneralConfig {
@@ -37,22 +43,34 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
   )
     throw new Error('Device name must be at most 100 characters without control characters.')
   if (!['system', 'light', 'dark'].includes(config.theme)) throw new Error('Invalid appearance')
-  for (const key of ['startMinimized', 'runInBackground', 'showMenuBarIcon'] as const) {
+  for (const key of [
+    'startMinimized',
+    'runInBackground',
+    'showMenuBarIcon',
+    'spotlightClipboardPaste'
+  ] as const) {
     if (typeof config[key] !== 'boolean') throw new Error(`Invalid setting: ${key}`)
   }
+  for (const key of ['globalShortcut', 'spotlightShortcut'] as const) {
+    if (typeof config[key] !== 'string' || config[key].length > 200 || config[key].includes('\0'))
+      throw new Error('Invalid keyboard shortcut')
+  }
+  const position = config.spotlightPosition
   if (
-    typeof config.globalShortcut !== 'string' ||
-    config.globalShortcut.length > 200 ||
-    config.globalShortcut.includes('\0')
+    position !== null &&
+    (!position || !Number.isFinite(position.x) || !Number.isFinite(position.y))
   )
-    throw new Error('Invalid keyboard shortcut')
+    throw new Error('Invalid Spotlight position')
   return {
     deviceName: config.deviceName.trim(),
     theme: config.theme,
     startMinimized: config.startMinimized,
     runInBackground: config.runInBackground,
     showMenuBarIcon: config.showMenuBarIcon,
-    globalShortcut: config.globalShortcut.trim()
+    globalShortcut: config.globalShortcut.trim(),
+    spotlightShortcut: config.spotlightShortcut.trim(),
+    spotlightClipboardPaste: config.spotlightClipboardPaste,
+    spotlightPosition: position === null ? null : { x: position.x, y: position.y }
   }
 }
 

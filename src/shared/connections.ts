@@ -1,4 +1,5 @@
 import type { ServiceStatus } from './terminal'
+import type { TetherEvent } from './events'
 
 export interface Connection {
   id: string
@@ -21,12 +22,13 @@ export interface AccessToken {
   expiresAt: number | null
 }
 
-export interface TetherAuthBridge {
+export interface TetherBridge {
   version: 1
   signedIn(token: string): Promise<AccessToken>
   refresh(force?: boolean): Promise<AccessToken | null>
   signedOut(): Promise<void>
   onToken(callback: (access: AccessToken | null) => void): () => void
+  onEvent(callback: (event: TetherEvent) => Promise<void>): () => void
 }
 
 export function normalizeURL(value: string): string {

@@ -28,6 +28,7 @@ import type { AppInfo } from '../shared/api'
 import { parseGeneralConfig, parseLocalServerConfig, type AppConfig } from '../shared/config'
 
 import { Connections } from './connections'
+import { Spotlight } from './spotlight'
 import { setTooltip } from './tooltip'
 
 app.setName('Tether')
@@ -40,7 +41,12 @@ let tray: Tray | null = null
 let quitting = false
 let shutdownStarted = false
 let resetting = false
-let registeredShortcut = ''
+const registeredShortcuts = { globalShortcut: '', spotlightShortcut: '' }
+const shortcutKeys = ['globalShortcut', 'spotlightShortcut'] as const
+const spotlight = new Spotlight(connections, showMainWindow, () => mainWindow?.hide())
+const openSpotlight = (): void => {
+  void spotlight.toggle().catch((error) => log.warn('Could not open Spotlight:', error))
+}
 let savingConfig: Promise<void> = Promise.resolve()
 
 function showMainWindow(): void {
@@ -186,6 +192,7 @@ function registerIPC(): void {
       resetting = false
     }
   })
+  handle('spotlight:open', () => spotlight.toggle())
   handle('window:tooltip', (value) => setTooltip(mainWindow, value))
   handle('window:visibility', () => !!mainWindow?.isVisible() && !mainWindow.isMinimized())
   handle(
@@ -229,24 +236,30 @@ function registerIPC(): void {
         if (!directory?.isDirectory())
           throw new Error('Choose an existing folder for the home directory.')
       }
-      const changedShortcut =
-        next.globalShortcut !== previous.globalShortcut ||
-        ('globalShortcut' in patch && next.globalShortcut !== registeredShortcut)
-      // Reserve the replacement while the previous shortcut remains usable.
-      if (changedShortcut && next.globalShortcut) registerShortcut(next.globalShortcut)
-      store.general = next
-      store.localServer = localServer
+      const changed = shortcutKeys.filter(
+        (key) =>
+          next[key] !== previous[key] || (key in patch && next[key] !== registeredShortcuts[key])
+      )
+      const reserved: string[] = []
       try {
+        for (const key of changed) {
+          if (next[key]) {
+            registerShortcut(next[key], key === 'globalShortcut' ? showMainWindow : openSpotlight)
+            reserved.push(next[key])
+          }
+        }
+        store.general = next
+        store.localServer = localServer
         await store.saveConfig()
       } catch (error) {
         store.general = previous
         store.localServer = previousServer
-        if (changedShortcut && next.globalShortcut) globalShortcut.unregister(next.globalShortcut)
+        for (const accelerator of reserved) globalShortcut.unregister(accelerator)
         throw error
       }
-      if (changedShortcut) {
-        if (registeredShortcut) globalShortcut.unregister(registeredShortcut)
-        registeredShortcut = next.globalShortcut
+      for (const key of changed) {
+        if (registeredShortcuts[key]) globalShortcut.unregister(registeredShortcuts[key])
+        registeredShortcuts[key] = next[key]
       }
       nativeTheme.themeSource = next.theme
       mainWindow?.webContents.send('config:changed', {
@@ -311,6 +324,7 @@ function createMenus(): void {
       label: 'Window',
       submenu: [
         { label: 'Show Tether', click: showMainWindow },
+        { label: 'Open Spotlight', click: openSpotlight },
         { role: 'minimize' },
         { role: 'close' }
       ]
@@ -348,6 +362,7 @@ function updateTray(): void {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Show Tether', click: showMainWindow },
+      { label: 'Open Spotlight', click: openSpotlight },
       {
         label: 'Check for Updates…',
         click: () => {
@@ -362,9 +377,9 @@ function updateTray(): void {
   tray.on('click', showMainWindow)
 }
 
-function registerShortcut(accelerator: string): void {
+function registerShortcut(accelerator: string, callback: () => void): void {
   try {
-    if (globalShortcut.register(accelerator, showMainWindow)) return
+    if (globalShortcut.register(accelerator, callback)) return
   } catch {
     /* Report invalid accelerators and registration conflicts consistently. */
   }
@@ -387,6 +402,7 @@ if (!app.requestSingleInstanceLock()) {
     event.preventDefault()
     shutdownStarted = true
     quitting = true
+    spotlight.destroy()
     void connections.stop().finally(() => app.quit())
   })
   app.on('will-quit', () => {
@@ -408,16 +424,18 @@ if (!app.requestSingleInstanceLock()) {
       })
       await connections.initialize()
       nativeTheme.themeSource = connections.store.general.theme
-      const accelerator = connections.store.general.globalShortcut
-      if (accelerator) {
+      spotlight.initialize()
+      for (const key of shortcutKeys) {
+        const accelerator = connections.store.general[key]
+        if (!accelerator) continue
         try {
-          registerShortcut(accelerator)
-          registeredShortcut = accelerator
+          registerShortcut(accelerator, key === 'globalShortcut' ? showMainWindow : openSpotlight)
+          registeredShortcuts[key] = accelerator
         } catch (error) {
           log.warn(error)
           if (Notification.isSupported())
             new Notification({
-              title: 'Open Tether shortcut',
+              title: 'Tether shortcut',
               body: String(error).replace(/^Error: /, '')
             }).show()
         }
