@@ -5,7 +5,7 @@ import type { Sessions } from './sessions'
 import { endpoint, type Connection } from '../shared/connections'
 
 const CHUNK = 64 * 1024
-const WINDOW = 256 * 1024
+const WINDOW = 2 * 1024 * 1024
 const MAX_MESSAGE = 16 * 1024 * 1024
 
 interface Packet {
@@ -69,6 +69,9 @@ export class Relay {
   connected = false
   notifications = false
   private socket?: WebSocket
+  private window = 256 * 1024
+  private output = Promise.resolve()
+  private pendingSends = 0
   private streams = new Map<string, Stream>()
   private destinations = new Map<string, ResolveDestination>()
   private stopped = false
@@ -76,6 +79,7 @@ export class Relay {
   private heartbeat?: ReturnType<typeof setInterval>
   private delay = 1000
   private buffered = 0
+  private queuedOutput = 0
 
   constructor(
     private connection: Connection,
@@ -134,6 +138,7 @@ export class Relay {
           JSON.stringify({
             type: 'hello',
             version: 2,
+            window: WINDOW,
             notifications: true,
             token: access.token,
             connection_id: this.connection.id,
@@ -147,6 +152,10 @@ export class Relay {
           if (!binary) {
             const control = JSON.parse(bytes.toString())
             if (control.type === 'ready') {
+              const window = control.window ?? 256 * 1024
+              if (!Number.isSafeInteger(window) || window < CHUNK || window > WINDOW)
+                throw new Error('Invalid relay window')
+              this.window = window
               this.connected = true
               this.notifications = control.notifications === true
               this.delay = 1000
@@ -217,9 +226,24 @@ export class Relay {
     const socket = this.socket
     if (!socket || socket.readyState !== WebSocket.OPEN) throw new Error('Relay disconnected')
     const packet = encode({ ...fields, type, stream: id, sequence: stream.outputSequence++ }, data)
-    await new Promise<void>((resolve, reject) =>
-      socket.send(packet, (error) => (error ? reject(error) : resolve()))
-    )
+    if (this.pendingSends >= 64) {
+      socket.terminate()
+      throw new Error('Relay send queue full')
+    }
+    this.pendingSends++
+    // Each producer awaits one chunk; a shared FIFO gives other streams a turn.
+    const sent = this.output.then(async () => {
+      await new Promise<void>((resolve, reject) =>
+        socket.send(packet, (error) => (error ? reject(error) : resolve()))
+      )
+      await new Promise<void>((resolve) => setImmediate(resolve))
+    })
+    this.output = sent.catch(() => {})
+    try {
+      await sent
+    } finally {
+      this.pendingSends--
+    }
   }
 
   private async chunks(id: string, data: Buffer, kind?: string): Promise<void> {
@@ -238,8 +262,8 @@ export class Relay {
         service: typeof header.service === 'string' ? header.service : '',
         inputSequence: 0,
         outputSequence: 0,
-        inputCredit: WINDOW,
-        outputCredit: WINDOW,
+        inputCredit: this.window,
+        outputCredit: this.window,
         closed: false,
         chain: Promise.resolve(),
         parts: [],
@@ -251,7 +275,11 @@ export class Relay {
     if (header.sequence !== stream.inputSequence++) throw new Error('Relay sequence gap')
     if (header.type === 'window') {
       const credit = Number(header.bytes)
-      if (!Number.isSafeInteger(credit) || credit <= 0 || stream.outputCredit + credit > WINDOW)
+      if (
+        !Number.isSafeInteger(credit) ||
+        credit <= 0 ||
+        stream.outputCredit + credit > this.window
+      )
         throw new Error('Invalid window')
       stream.outputCredit += credit
       stream.wake?.()
@@ -392,14 +420,28 @@ export class Relay {
       const ready = once(socket, 'open').then(() => this.send(header.stream, 'ws-ready'))
       // Servers can send their initial state with the upgrade response.
       let output = ready
+      let queuedMessages = 0
       socket.on('message', (data, binary) => {
+        if (stream.closed) return
         socket.pause()
+        const message = Buffer.from(data as Buffer)
+        if (queuedMessages >= 64 || this.queuedOutput + message.length > 32 * 1024 * 1024) {
+          void this.send(header.stream, 'error', {
+            message: 'Local output backlog exceeded.'
+          }).catch(() => {})
+          this.closeStream(header.stream)
+          return
+        }
+        queuedMessages++
+        this.queuedOutput += message.length
         output = output
-          .then(() =>
-            this.chunks(header.stream, Buffer.from(data as Buffer), binary ? 'binary' : 'text')
-          )
+          .then(() => this.chunks(header.stream, message, binary ? 'binary' : 'text'))
           .then(() => socket.resume())
           .catch(() => this.closeStream(header.stream))
+          .finally(() => {
+            queuedMessages--
+            this.queuedOutput -= message.length
+          })
       })
       socket.on('close', (code) => {
         void output
