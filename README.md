@@ -23,4 +23,4 @@ We don't take pull requests. [Open an issue](https://github.com/open-webui/tethe
 
 ### License
 
-Free for personal, non-commercial use. Commercial or organizational production use requires an Open WebUI Enterprise License. See [LICENSE](LICENSE).
+Free for personal, non-commercial use. Commercial or organizational production use requires an Open WebUI Enterprise License. All rights reserved. See [LICENSE](LICENSE).
