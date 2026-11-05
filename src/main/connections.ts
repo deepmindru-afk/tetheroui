@@ -555,6 +555,7 @@ export class Connections {
       webPreferences: {
         session: session.fromPath(join(app.getPath('userData'), 'profiles', connection.id)),
         preload: join(__dirname, '../preload/guest.js'),
+        additionalArguments: ['--tether-connection-url=' + connection.url],
         sandbox: true,
         contextIsolation: true,
         nodeIntegration: false
@@ -600,30 +601,91 @@ export class Connections {
       this.titles.set(connection.id, explicitSet ? title.trim() : '')
       if (this.store.selected === connection.id) this.emit()
     })
-    const navigate = (event: Electron.Event, address: string): void => {
+    let legacySignIn = false
+    let signingIn = false
+    const oauthProvider = (address: string): string | undefined => {
+      if (!belongsToConnection(address, connection.url)) return
+      const root = new URL(endpoint(connection.url, 'oauth/')).pathname
+      const path = new URL(address).pathname
+      if (!path.startsWith(root)) return
+      return /^([a-zA-Z0-9_-]+)\/login\/?$/.exec(path.slice(root.length))?.[1]
+    }
+    const signIn = async (address: string, provider: string): Promise<void> => {
+      if (signingIn) return
+      signingIn = true
+      try {
+        const handled = await this.sessions.signInWithBrowser(connection.id, provider)
+        if (!handled && this.views.get(connection.id) === view && !view.webContents.isDestroyed()) {
+          // Restart in the same session so legacy OAuth state and callback cookies stay together.
+          legacySignIn = true
+          await view.webContents.loadURL(address)
+        }
+      } catch (error) {
+        legacySignIn = false
+        if (this.views.get(connection.id) === view) this.fail(connection.id, String(error))
+      } finally {
+        signingIn = false
+      }
+    }
+    view.webContents.on('did-navigate', (_event, address) => {
+      if (belongsToConnection(address, connection.url) && !oauthProvider(address))
+        legacySignIn = false
+    })
+    const navigate = (
+      event: Electron.Event,
+      address: string,
+      _isInPlace?: boolean,
+      isMainFrame?: boolean
+    ): void => {
+      if (isMainFrame === false) return
       if (belongsToConnection(address, connection.url)) {
-        const url = new URL(address)
-        const oauthRoot = new URL(endpoint(connection.url, 'oauth/')).pathname
-        const suffix = url.pathname.startsWith(oauthRoot)
-          ? url.pathname.slice(oauthRoot.length)
-          : ''
-        if (/^[a-zA-Z0-9_-]+\/login$/.test(suffix)) {
+        const provider = oauthProvider(address)
+        if (provider && !legacySignIn) {
           event.preventDefault()
-          void this.sessions
-            .signInWithBrowser(connection.id, suffix.split('/')[0])
-            .catch((error) => this.fail(connection.id, String(error)))
+          void signIn(address, provider)
         }
         return
       }
+      if (legacySignIn && /^https?:\/\//i.test(address)) return
       event.preventDefault()
       if (['https:', 'http:'].includes(new URL(address).protocol)) void shell.openExternal(address)
     }
     view.webContents.on('will-navigate', navigate)
     view.webContents.on('will-redirect', navigate)
-    view.webContents.setWindowOpenHandler(({ url }) => {
+    view.webContents.setWindowOpenHandler(({ url, disposition, features }) => {
+      const provider = oauthProvider(url)
+      if (provider && !legacySignIn) {
+        void signIn(url, provider)
+        return { action: 'deny' }
+      }
+      if (
+        legacySignIn &&
+        disposition === 'new-window' &&
+        features &&
+        (/^https?:\/\//i.test(url) || url === 'about:blank')
+      ) {
+        return {
+          action: 'allow',
+          overrideBrowserWindowOptions: {
+            webPreferences: {
+              session: view.webContents.session,
+              preload: undefined,
+              sandbox: true,
+              contextIsolation: true,
+              nodeIntegration: false,
+              webviewTag: false
+            }
+          }
+        }
+      }
       if (belongsToConnection(url, connection.url)) void view.webContents.loadURL(url)
       else if (['https:', 'http:'].includes(new URL(url).protocol)) void shell.openExternal(url)
       return { action: 'deny' }
+    })
+    view.webContents.on('did-create-window', (popup) => {
+      const close = (): void => popup.close()
+      view.webContents.once('destroyed', close)
+      popup.once('closed', () => view.webContents.removeListener('destroyed', close))
     })
     view.webContents.on('did-fail-load', (_event, code, description, _url, isMainFrame) => {
       if (isMainFrame && code !== -3) this.fail(connection.id, description)
