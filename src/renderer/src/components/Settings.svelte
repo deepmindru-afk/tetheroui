@@ -84,14 +84,14 @@
         <div class="m-1 flex shrink-0 items-center gap-1 md:mb-0">
           <button
             type="button"
-            class="flex h-[28px] flex-1 items-center gap-[6px] rounded-[8px] px-[8px] text-gray-800 transition-colors duration-75 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+            class="flex h-[28px] flex-1 items-center gap-[6px] rounded-[8px] px-[8px] text-[12px] leading-[16px] text-gray-800 transition-colors duration-75 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
             onclick={onClose}
           >
             <span
-              class="inline-flex size-[12px] shrink-0 [&>svg]:size-full"
+              class="inline-flex h-full w-[14px] shrink-0 items-center justify-center leading-none [&>svg]:size-[14px]"
               aria-hidden="true"
               class:rotate-180={$i18n.dir() === 'rtl'}>{@html NavArrowLeftIcon}</span
-            >{$i18n.t('settings.back')}</button
+            ><span>{$i18n.t('settings.back')}</span></button
           >
           <button
             type="button"

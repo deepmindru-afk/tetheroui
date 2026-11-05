@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] - 2026-11-05
+
+### Added
+
+- **Chrome connection choice.** In **Settings → Open Terminal**, choose **Launch Chrome** for a separate browser profile or **Connect to running Chrome** to use your existing website logins. Connecting to running Chrome requires Open Terminal 0.16.3 or later. Enable remote debugging in Chrome and approve the connection when Chrome asks. Leave **Connection URL** blank to find Chrome automatically, or enter the address of the Chrome instance you want to use. Click **Restart to apply** after changing these settings.
+- **Browser and desktop switches.** Turn WebUI's browser tools and Open Terminal's desktop viewing and control on or off separately under **Tools**. Desktop access requires a supported system. Click **Restart to apply** to apply either change.
+- **File browsing starting folder.** Choose **Home directory**, **File system**, or **Custom folder** under **File browser starts at**. Use **Browse** to pick a custom folder. This changes where file browsing begins; it does not restrict which files or folders commands can access.
+- **Terminal session limit.** Set the maximum number of terminal sessions Open Terminal can keep open at once. The field stays blank unless you set a limit, and clearing it restores Open Terminal's default.
+
+### Changed
+
+- **Open Terminal settings layout.** Common options now appear under **Tools** and **Files**, with the environment-variable editor tucked into a collapsed **Advanced** section. Changes in the regular controls and Advanced stay in sync both ways. **Restart to apply** remains visible when Advanced is closed.
+
+### Fixed
+
+- **Settings arrows and labels.** Aligned the Back arrow with its label and gave the browser and file-folder dropdown arrows their own space so they do not overlap the selected text.
+- **Mac downloads.** Corrected Mac packaging so Intel and Apple silicon downloads are built separately.
+
 ## [0.1.0] - 2026-11-05
 
 ### Added

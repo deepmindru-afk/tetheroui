@@ -1,7 +1,9 @@
 <script lang="ts">
+  /* eslint-disable svelte/no-at-html-tags -- Icons are static SVG imports from Iconoir. */
   import i18n from '../../lib/i18n'
   import { onMount } from 'svelte'
   import { parseLocalServerConfig, type RuntimeState } from '../../../../shared/config'
+  import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
 
   const id = $props.id()
   // Suggestions only; arbitrary variable names and values remain editable.
@@ -11,9 +13,12 @@
     OPEN_TERMINAL_ENABLE_DESKTOP: ['true', 'false'],
     OPEN_TERMINAL_EXECUTE_TIMEOUT: ['60', '120', '300'],
     OPEN_TERMINAL_MAX_SESSIONS: ['16', '32', '64'],
-    OPEN_TERMINAL_FILE_BROWSER_ROOT: ['home', '/'],
+    OPEN_TERMINAL_FILE_BROWSER_ROOT: ['home', 'filesystem'],
     OPEN_TERMINAL_BROWSER_EXECUTABLE: [],
     OPEN_TERMINAL_BROWSER_NO_SANDBOX: ['false', 'true'],
+    OPEN_TERMINAL_BROWSER_MODE: ['managed', 'personal'],
+    OPEN_TERMINAL_BROWSER_CDP_URL: [],
+    OPEN_TERMINAL_BROWSER_USER_DATA_DIR: [],
     OPEN_TERMINAL_TERM: ['xterm-256color', 'xterm'],
     OPEN_TERMINAL_ENABLE_SYSTEM_PROMPT: ['true', 'false'],
     OPEN_TERMINAL_SYSTEM_PROMPT: [],
@@ -39,6 +44,7 @@
   let enabled = $state(false)
   let autoUpdate = $state(false)
   let env = $state<{ name: string; value: string }[]>([])
+  let advancedOpen = $state(false)
   let restarting = $state(false)
   let runtime = $state<RuntimeState>({ version: null, status: '', busy: false, error: '' })
   let loaded = $state(false)
@@ -47,6 +53,36 @@
   let error = $state('')
   let saving: Promise<void> = Promise.resolve()
   const busy = $derived(runtime.busy || installing || uninstalling || restarting || !loaded)
+  const capabilities = [
+    { name: 'OPEN_TERMINAL_ENABLE_BROWSER', label: 'browserAccess' },
+    { name: 'OPEN_TERMINAL_ENABLE_DESKTOP', label: 'desktopAccess' }
+  ]
+  const browserMode = $derived(envValue('OPEN_TERMINAL_BROWSER_MODE', 'managed').toLowerCase())
+  const fileRoot = $derived(envValue('OPEN_TERMINAL_FILE_BROWSER_ROOT', 'home').trim())
+  const fileRootMode = $derived(
+    !fileRoot || fileRoot.toLowerCase() === 'home'
+      ? 'home'
+      : fileRoot.toLowerCase() === 'filesystem'
+        ? 'filesystem'
+        : 'custom'
+  )
+
+  // Both views edit these same rows; absent variables keep Open Terminal's defaults.
+  function envValue(name: string, fallback = ''): string {
+    return env.find((row) => row.name.trim() === name)?.value ?? fallback
+  }
+
+  function envEnabled(name: string): boolean {
+    return !['false', '0', 'no'].includes(envValue(name, 'true').toLowerCase())
+  }
+
+  function setEnv(name: string, value: string): void {
+    const row = env.find((row) => row.name.trim() === name)
+    if (value === '') env = env.filter((row) => row.name.trim() !== name)
+    else if (row) row.value = value
+    else env = [...env, { name, value }]
+    saveSettings()
+  }
 
   async function save(): Promise<void> {
     const entries = env.filter((row) => row.name.trim() || row.value)
@@ -73,13 +109,16 @@
     })
   }
 
-  async function chooseDirectory(): Promise<void> {
+  async function chooseDirectory(variable?: string): Promise<void> {
     error = ''
     try {
       const directory = await window.api.selectDirectory()
       if (directory === null) return
-      homeDirectory = directory
-      await save()
+      if (variable) setEnv(variable, directory)
+      else {
+        homeDirectory = directory
+        await save()
+      }
     } catch (cause) {
       error = String(cause).replace(/^Error: /, '')
     }
@@ -246,7 +285,101 @@
   >
     {$i18n.t('settings.terminal.description')}
   </p>
+  <section class="mt-5" aria-label={$i18n.t('settings.terminal.tools')}>
+    <h3 class="section-label">{$i18n.t('settings.terminal.tools')}</h3>
+    {#each capabilities as capability (capability.name)}
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">{$i18n.t(`settings.terminal.${capability.label}`)}</div>
+          <p class="setting-description">{$i18n.t(`settings.terminal.${capability.label}Desc`)}</p>
+        </div>
+        <Switch
+          checked={envEnabled(capability.name)}
+          label={$i18n.t(`settings.terminal.${capability.label}`)}
+          disabled={busy}
+          onchange={(value) => setEnv(capability.name, String(value))}
+        />
+      </div>
+    {/each}
+    <div class="setting-row">
+      <div>
+        <label class="setting-label" for="terminal-session-limit"
+          >{$i18n.t('settings.terminal.sessionLimit')}</label
+        >
+        <p class="setting-description">{$i18n.t('settings.terminal.sessionLimitDesc')}</p>
+      </div>
+      <input
+        id="terminal-session-limit"
+        class="env-input session-limit"
+        type="number"
+        min="1"
+        step="1"
+        value={envValue('OPEN_TERMINAL_MAX_SESSIONS')}
+        placeholder="16"
+        disabled={busy}
+        onchange={(event) => {
+          if (event.currentTarget.reportValidity())
+            setEnv('OPEN_TERMINAL_MAX_SESSIONS', event.currentTarget.value)
+        }}
+      />
+    </div>
+    {#if envEnabled('OPEN_TERMINAL_ENABLE_BROWSER')}
+      <div class="setting-row">
+        <div>
+          <label class="setting-label" for="terminal-browser-mode"
+            >{$i18n.t('settings.terminal.chrome')}</label
+          >
+          <p class="setting-description">{$i18n.t('settings.terminal.chromeDesc')}</p>
+        </div>
+        <div class="select-wrapper">
+          <select
+            id="terminal-browser-mode"
+            class="env-input setting-select"
+            value={browserMode}
+            disabled={busy}
+            onchange={(event) => setEnv('OPEN_TERMINAL_BROWSER_MODE', event.currentTarget.value)}
+          >
+            <option value="managed">{$i18n.t('settings.terminal.managedChrome')}</option>
+            <option value="personal">{$i18n.t('settings.terminal.personalChrome')}</option>
+            {#if !['managed', 'personal'].includes(browserMode)}
+              <option value={browserMode}>{browserMode}</option>
+            {/if}
+          </select>
+          <span aria-hidden="true" class="select-chevron inline-flex [&>svg]:size-full"
+            >{@html NavArrowDownIcon}</span
+          >
+        </div>
+      </div>
+      {#if browserMode === 'personal'}
+        <p class="setting-description">{$i18n.t('settings.terminal.personalChromeDesc')}</p>
+        <div class="mt-3">
+          <label class="setting-label" for="terminal-browser-url"
+            >{$i18n.t('settings.terminal.chromeUrl')}</label
+          >
+          <p class="setting-description">{$i18n.t('settings.terminal.chromeUrlDesc')}</p>
+          <input
+            id="terminal-browser-url"
+            class="env-input mt-2"
+            dir="ltr"
+            type="url"
+            pattern="https?://.+|wss?://.+"
+            value={envValue('OPEN_TERMINAL_BROWSER_CDP_URL')}
+            placeholder="http://127.0.0.1:9222"
+            disabled={busy}
+            spellcheck="false"
+            autocapitalize="off"
+            autocomplete="off"
+            onchange={(event) => {
+              if (event.currentTarget.reportValidity())
+                setEnv('OPEN_TERMINAL_BROWSER_CDP_URL', event.currentTarget.value.trim())
+            }}
+          />
+        </div>
+      {/if}
+    {/if}
+  </section>
   <section class="mt-5" aria-label={$i18n.t('settings.terminal.homeDirectory')}>
+    <h3 class="section-label">{$i18n.t('settings.terminal.files')}</h3>
     <label for="terminal-home" class="text-[12px] leading-[16px] font-normal"
       >{$i18n.t('settings.terminal.homeDirectory')}</label
     >
@@ -265,96 +398,168 @@
         autocapitalize="off"
         onchange={saveSettings}
       />
-      <button class="env-action shrink-0" disabled={busy} onclick={chooseDirectory}
+      <button class="env-action shrink-0" disabled={busy} onclick={() => chooseDirectory()}
         >{$i18n.t('common.browse')}</button
       >
     </div>
-  </section>
-  <section class="mt-5" aria-label={$i18n.t('settings.general.environmentVariables')}>
-    <div class="flex items-center justify-between gap-4 py-[7px]">
-      <h3 class="text-[12px] leading-[16px] font-normal">
-        {$i18n.t('settings.general.environmentVariables')}
-      </h3>
-      <button
-        class="env-action"
-        disabled={busy || env.some((row) => !row.name.trim())}
-        onclick={() => {
-          env = [...env, { name: '', value: '' }]
-        }}>{$i18n.t('settings.terminal.addVariable')}</button
-      >
+    <div class="setting-row mt-3">
+      <div>
+        <label class="setting-label" for="terminal-file-root"
+          >{$i18n.t('settings.terminal.fileRoot')}</label
+        >
+        <p class="setting-description">{$i18n.t('settings.terminal.fileRootDesc')}</p>
+      </div>
+      <div class="select-wrapper">
+        <select
+          id="terminal-file-root"
+          class="env-input setting-select"
+          value={fileRootMode}
+          disabled={busy}
+          onchange={(event) =>
+            setEnv(
+              'OPEN_TERMINAL_FILE_BROWSER_ROOT',
+              event.currentTarget.value === 'custom'
+                ? homeDirectory.trim() || defaultHomeDirectory
+                : event.currentTarget.value
+            )}
+        >
+          <option value="home">{$i18n.t('settings.terminal.homeDirectory')}</option>
+          <option value="filesystem">{$i18n.t('settings.terminal.fileSystem')}</option>
+          <option value="custom">{$i18n.t('settings.terminal.customFolder')}</option>
+        </select>
+        <span aria-hidden="true" class="select-chevron inline-flex [&>svg]:size-full"
+          >{@html NavArrowDownIcon}</span
+        >
+      </div>
     </div>
-    <datalist id={`${id}-names`}>
-      {#each Object.keys(suggestions) as name (name)}
-        {#if !env.some((row) => row.name.trim().toUpperCase() === name)}
-          <option value={name}></option>
-        {/if}
-      {/each}
-    </datalist>
-    <div class="flex flex-col gap-2">
-      {#each env as row, index (row)}
-        {@const options = Object.hasOwn(suggestions, row.name.trim())
-          ? suggestions[row.name.trim()]
-          : []}
-        <div class="env-row">
-          <input
-            dir="ltr"
-            class="env-input"
-            aria-label={$i18n.t('settings.terminal.variableName', { number: index + 1 })}
-            placeholder={$i18n.t('common.name')}
-            list={`${id}-names`}
-            autocomplete="off"
-            title={row.name}
-            use:focusNew={!row.name}
-            bind:value={row.name}
-            disabled={busy}
-            spellcheck="false"
-            autocapitalize="off"
-            onchange={saveSettings}
-          />
-          <input
-            dir="ltr"
-            class="env-input"
-            aria-label={$i18n.t('settings.terminal.variableValue', { number: index + 1 })}
-            placeholder={$i18n.t('common.value')}
-            list={options.length ? `${id}-values-${index}` : undefined}
-            autocomplete="off"
-            bind:value={row.value}
-            disabled={busy}
-            spellcheck="false"
-            autocapitalize="off"
-            onchange={saveSettings}
-          />
-          {#if options.length}
-            <datalist id={`${id}-values-${index}`}>
-              {#each options as option (option)}<option value={option}></option>{/each}
-            </datalist>
-          {/if}
+    {#if fileRootMode === 'custom'}
+      <div class="mt-2 flex items-center gap-3">
+        <input
+          dir="ltr"
+          class="env-input"
+          aria-label={$i18n.t('settings.terminal.customFolder')}
+          value={fileRoot}
+          disabled={busy}
+          spellcheck="false"
+          autocapitalize="off"
+          onchange={(event) => setEnv('OPEN_TERMINAL_FILE_BROWSER_ROOT', event.currentTarget.value)}
+        />
+        <button
+          class="env-action shrink-0"
+          disabled={busy}
+          onclick={() => chooseDirectory('OPEN_TERMINAL_FILE_BROWSER_ROOT')}
+          >{$i18n.t('common.browse')}</button
+        >
+      </div>
+    {/if}
+  </section>
+  <div class="pt-[16px]">
+    <button
+      class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
+      aria-expanded={advancedOpen}
+      aria-controls={`${id}-advanced`}
+      onclick={() => (advancedOpen = !advancedOpen)}
+    >
+      <span
+        aria-hidden="true"
+        class="inline-flex size-[12px] shrink-0 items-center justify-center leading-none transition-transform duration-200 [&>svg]:size-full"
+        class:-rotate-90={!advancedOpen && $i18n.dir() !== 'rtl'}
+        class:rotate-90={!advancedOpen && $i18n.dir() === 'rtl'}>{@html NavArrowDownIcon}</span
+      >
+      <span class="setting-label">{$i18n.t('common.advanced')}</span>
+    </button>
+    {#if advancedOpen}
+      <section
+        id={`${id}-advanced`}
+        class="flex flex-col"
+        aria-label={$i18n.t('settings.general.environmentVariables')}
+      >
+        <div class="flex items-center justify-between gap-4 py-[7px]">
+          <h3 class="text-[12px] leading-[16px] font-normal">
+            {$i18n.t('settings.general.environmentVariables')}
+          </h3>
           <button
             class="env-action"
-            aria-label={$i18n.t('settings.terminal.removeVariable', { number: index + 1 })}
-            disabled={busy}
+            disabled={busy || env.some((row) => !row.name.trim())}
             onclick={() => {
-              env = env.filter((_, i) => i !== index)
-              saveSettings()
-            }}>{$i18n.t('common.remove')}</button
+              env = [...env, { name: '', value: '' }]
+            }}>{$i18n.t('settings.terminal.addVariable')}</button
           >
         </div>
-      {/each}
-    </div>
-    <div class="mt-2 flex items-start justify-between gap-4">
-      <p class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
-        {$i18n.t('settings.terminal.environmentDesc')}
-      </p>
-      <button
-        class="env-action shrink-0"
-        disabled={busy || !runtime.version || !enabled}
-        onclick={restart}
-        >{restarting
-          ? $i18n.t('common.restarting')
-          : $i18n.t('settings.terminal.restartToApply')}</button
-      >
-    </div>
-  </section>
+        <datalist id={`${id}-names`}>
+          {#each Object.keys(suggestions) as name (name)}
+            {#if !env.some((row) => row.name.trim().toUpperCase() === name)}
+              <option value={name}></option>
+            {/if}
+          {/each}
+        </datalist>
+        <div class="flex flex-col gap-2">
+          {#each env as row, index (row)}
+            {@const options = Object.hasOwn(suggestions, row.name.trim())
+              ? suggestions[row.name.trim()]
+              : []}
+            <div class="env-row">
+              <input
+                dir="ltr"
+                class="env-input"
+                aria-label={$i18n.t('settings.terminal.variableName', { number: index + 1 })}
+                placeholder={$i18n.t('common.name')}
+                list={`${id}-names`}
+                autocomplete="off"
+                title={row.name}
+                use:focusNew={!row.name}
+                bind:value={row.name}
+                disabled={busy}
+                spellcheck="false"
+                autocapitalize="off"
+                onchange={saveSettings}
+              />
+              <input
+                dir="ltr"
+                class="env-input"
+                aria-label={$i18n.t('settings.terminal.variableValue', { number: index + 1 })}
+                placeholder={$i18n.t('common.value')}
+                list={options.length ? `${id}-values-${index}` : undefined}
+                autocomplete="off"
+                bind:value={row.value}
+                disabled={busy}
+                spellcheck="false"
+                autocapitalize="off"
+                onchange={saveSettings}
+              />
+              {#if options.length}
+                <datalist id={`${id}-values-${index}`}>
+                  {#each options as option (option)}<option value={option}></option>{/each}
+                </datalist>
+              {/if}
+              <button
+                class="env-action"
+                aria-label={$i18n.t('settings.terminal.removeVariable', { number: index + 1 })}
+                disabled={busy}
+                onclick={() => {
+                  env = env.filter((_, i) => i !== index)
+                  saveSettings()
+                }}>{$i18n.t('common.remove')}</button
+              >
+            </div>
+          {/each}
+        </div>
+      </section>
+    {/if}
+  </div>
+  <div class="mt-4 flex items-start justify-between gap-4">
+    <p class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
+      {$i18n.t('settings.terminal.environmentDesc')}
+    </p>
+    <button
+      class="env-action shrink-0"
+      disabled={busy || !runtime.version || !enabled}
+      onclick={restart}
+      >{restarting
+        ? $i18n.t('common.restarting')
+        : $i18n.t('settings.terminal.restartToApply')}</button
+    >
+  </div>
   {#if runtime.version || enabled}
     <div class="mt-[10px] flex min-w-0 items-center justify-between gap-[16px] pt-[16px] pb-[7px]">
       <div>
@@ -385,6 +590,67 @@
 </div>
 
 <style>
+  .section-label {
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .setting-row {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-block: 7px;
+  }
+  .setting-row > :first-child {
+    min-width: 0;
+  }
+  .setting-label {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 400;
+    color: #171717;
+  }
+  :global(.dark) .setting-label {
+    color: #fff;
+  }
+  .setting-description {
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 16px;
+    color: oklch(0.51 0 0);
+  }
+  :global(.dark) .setting-description {
+    color: oklch(0.77 0 0);
+  }
+  .select-wrapper {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    max-width: 55%;
+  }
+  .env-input.setting-select {
+    appearance: none;
+    padding-inline: 10px 32px;
+  }
+  .select-chevron {
+    position: absolute;
+    pointer-events: none;
+    inset-inline-end: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 14px;
+    height: 14px;
+    color: oklch(0.77 0 0);
+  }
+  :global(.dark) .select-chevron {
+    color: oklch(0.69 0 0);
+  }
+  .env-input.session-limit {
+    width: 72px;
+    flex-shrink: 0;
+  }
   .env-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
