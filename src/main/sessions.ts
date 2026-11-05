@@ -105,6 +105,7 @@ export class Sessions {
       'api/v1/auths/',
       token
     )
+    this.unchanged(id, version)
     if (!['user', 'admin'].includes(info.role)) throw new Error('Account approval is required.')
     if (existing && existing.userId !== info.id)
       throw new Error('Sign out before changing accounts.')
@@ -189,18 +190,19 @@ export class Sessions {
 
   async signInWithBrowser(id: string, provider: string): Promise<void> {
     if (this.browsers.has(id)) throw new Error('Browser sign-in is already open.')
+    const version = this.versions.get(id) ?? 0
     const connection = this.connection(id)
     const config = await this.request<{
       features?: { auth_sessions?: boolean }
       oauth?: { providers?: Record<string, unknown> }
     }>(id, 'api/config')
+    this.unchanged(id, version)
     if (
       !config.features?.auth_sessions ||
       !Object.hasOwn(config.oauth?.providers ?? {}, provider)
     ) {
       throw new Error('This WebUI does not support browser sign-in from Tether.')
     }
-    const version = this.versions.get(id) ?? 0
     const verifier = randomBytes(32).toString('base64url')
     const state = randomBytes(32).toString('base64url')
     const path = '/callback/' + randomBytes(24).toString('base64url')
@@ -253,6 +255,7 @@ export class Sessions {
       })
       // Attach a rejection handler before network setup, which can itself fail.
       void callback.catch(() => {})
+      this.unchanged(id, version)
       const pending = await this.request<{ session_id: string }>(
         id,
         'api/v1/auths/sessions/requests',
@@ -283,6 +286,7 @@ export class Sessions {
           redirect_uri: redirectURI
         }
       )
+      this.unchanged(id, version)
       const info = await this.request<{ id: string }>(id, 'api/v1/auths/', result.token)
       const existing = this.store.credentials[id]
       if (existing && existing.userId !== info.id)

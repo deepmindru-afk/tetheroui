@@ -46,6 +46,7 @@ export interface TetherAPI {
     url: string
     installTerminal?: boolean
   }) => Promise<ConnectionState>
+  updateConnection: (id: string, input: { name: string; url: string }) => Promise<ConnectionState>
   selectConnection: (id: string | null) => Promise<void>
   reloadConnection: () => Promise<void>
   removeConnection: (id: string) => Promise<void>

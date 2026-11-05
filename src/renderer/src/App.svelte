@@ -11,7 +11,7 @@
   import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
   import type { AppInfo } from '../../shared/api'
   import type { GeneralConfig } from '../../shared/config'
-  import { normalizeURL, type ConnectionState } from '../../shared/connections'
+  import { normalizeURL, type Connection, type ConnectionState } from '../../shared/connections'
 
   let state = $state<ConnectionState>({
     connections: [],
@@ -78,6 +78,8 @@
   let error = $state('')
   let busy = $state(false)
   let removing = $state<string | null>(null)
+  let editing = $state<string | null>(null)
+  let addressInput = $state<HTMLInputElement>()
   let setupDialog: HTMLDialogElement
   const selected = $derived(
     state.connections.find((connection) => connection.id === state.selected)
@@ -107,6 +109,22 @@
     state = await window.api.addConnection({ name, url, installTerminal })
     name = ''
     url = ''
+  }
+
+  function editConnection(connection: Connection): void {
+    editing = connection.id
+    removing = null
+    error = ''
+    name = connection.name
+    url = connection.url
+    addressInput?.focus()
+  }
+
+  function cancelEdit(): void {
+    editing = null
+    name = ''
+    url = ''
+    error = ''
   }
 
   function finishSetup(installTerminal: boolean): void {
@@ -246,7 +264,14 @@
                     </span>
                   </button>
                   <button
+                    class="text-button"
+                    disabled={busy}
+                    aria-pressed={editing === connection.id}
+                    onclick={() => editConnection(connection)}>Edit</button
+                  >
+                  <button
                     class="text-button remove-button"
+                    disabled={busy}
                     aria-expanded={removing === connection.id}
                     onclick={() => (removing = removing === connection.id ? null : connection.id)}
                     >Remove</button
@@ -265,6 +290,7 @@
                         onclick={() =>
                           run(async () => {
                             await window.api.removeConnection(connection.id)
+                            if (editing === connection.id) cancelEdit()
                             removing = null
                           })}>Remove and sign out</button
                       >
@@ -277,7 +303,7 @@
               </section>
             {/each}
           </div>
-          <h2>Add connection</h2>
+          <h2>{editing ? 'Edit connection' : 'Add connection'}</h2>
         {:else}
           <h1>Connect to Open WebUI</h1>
           <p class="intro">Enter your Open WebUI address to get started.</p>
@@ -288,7 +314,11 @@
             event.preventDefault()
             void run(async () => {
               normalizeURL(url.trim())
-              if (state.connections.length === 0 && !openTerminalInstalled) setupDialog.showModal()
+              if (editing) {
+                state = await window.api.updateConnection(editing, { name, url })
+                cancelEdit()
+              } else if (state.connections.length === 0 && !openTerminalInstalled)
+                setupDialog.showModal()
               else await addConnection()
             })
           }}
@@ -297,6 +327,7 @@
             <label for="url">Open WebUI address</label>
             <input
               id="url"
+              bind:this={addressInput}
               type="url"
               bind:value={url}
               placeholder="https://chat.example.com"
@@ -309,20 +340,30 @@
             <label for="name">Name <span class="optional">optional</span></label>
             <input id="name" bind:value={name} maxlength="100" placeholder="My WebUI" />
           </div>
+          {#if editing && url.trim() !== state.connections.find((connection) => connection.id === editing)?.url}
+            <p class="message">Changing the address will sign you out of this connection.</p>
+          {/if}
           <div class="form-actions">
-            <button class="primary" disabled={busy}>
-              {busy ? 'Connecting…' : 'Connect'}
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                aria-hidden="true"
+            {#if editing}
+              <button type="button" class="text-button" disabled={busy} onclick={cancelEdit}
+                >Cancel</button
               >
-                <path d="M4 12h16m-6-6 6 6-6 6" />
-              </svg>
+            {/if}
+            <button class="primary" disabled={busy}>
+              {editing ? (busy ? 'Saving…' : 'Save') : busy ? 'Connecting…' : 'Connect'}
+              {#if !editing}
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 12h16m-6-6 6 6-6 6" />
+                </svg>
+              {/if}
             </button>
           </div>
         </form>
@@ -739,6 +780,7 @@
   }
   .form-actions {
     display: flex;
+    gap: 16px;
     justify-content: flex-end;
     margin-top: 20px;
   }

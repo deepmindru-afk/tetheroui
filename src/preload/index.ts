@@ -64,6 +64,7 @@ const api: TetherAPI = {
   },
   listConnections: () => ipcRenderer.invoke('connections:list'),
   addConnection: (input) => ipcRenderer.invoke('connections:add', input),
+  updateConnection: (id, input) => ipcRenderer.invoke('connections:update', id, input),
   selectConnection: (id) => ipcRenderer.invoke('connections:select', id),
   reloadConnection: () => ipcRenderer.invoke('connections:reload'),
   removeConnection: (id) => ipcRenderer.invoke('connections:remove', id),

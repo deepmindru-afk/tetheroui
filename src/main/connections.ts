@@ -290,6 +290,36 @@ export class Connections {
         return this.state()
       }
     )
+    ipcMain.handle(
+      'connections:update',
+      async (event, id: string, input: { name: string; url: string }) => {
+        this.shellSender(event)
+        const connection = this.store.connections.find((item) => item.id === id)
+        if (!connection) throw new Error('Unknown connection')
+        if (
+          !input ||
+          typeof input.url !== 'string' ||
+          typeof input.name !== 'string' ||
+          input.name.length > 100
+        )
+          throw new Error('Invalid connection')
+        const url = normalizeURL(input.url.trim())
+        const previous = { ...connection }
+        if (url !== connection.url) await this.clearConnection(id)
+        connection.name = input.name.trim() || new URL(url).host
+        connection.url = url
+        try {
+          await this.store.saveConfig()
+        } catch (error) {
+          Object.assign(connection, previous)
+          throw error
+        }
+        if (this.store.selected === id && !this.views.has(id)) this.createView(connection)
+        this.layout()
+        this.emit()
+        return this.state()
+      }
+    )
     ipcMain.handle('connections:select', async (event, id: string | null) => {
       this.shellSender(event)
       await this.select(id)
@@ -302,22 +332,8 @@ export class Connections {
       this.shellSender(event)
       if (!this.store.connections.some((item) => item.id === id))
         throw new Error('Unknown connection')
-      await this.sessions.signedOut(id)
-      const view = this.views.get(id)
-      if (view) {
-        this.window?.contentView.removeChildView(view)
-        const profile = view.webContents.session
-        view.webContents.close()
-        await profile.clearStorageData()
-        await profile.clearCache()
-        this.views.delete(id)
-      } else {
-        await session.fromPath(join(app.getPath('userData'), 'profiles', id)).clearStorageData()
-      }
+      await this.clearConnection(id)
       this.store.connections = this.store.connections.filter((item) => item.id !== id)
-      delete this.errors[id]
-      this.titles.delete(id)
-      await this.terminal.remove(id)
       if (this.store.selected === id) this.store.selected = this.store.connections[0]?.id ?? null
       await this.store.saveConfig()
       await this.select(this.store.selected)
@@ -329,6 +345,24 @@ export class Connections {
       this.sessions.refresh(this.guestSender(event), force === true)
     )
     ipcMain.handle('tether:logout', (event) => this.sessions.signedOut(this.guestSender(event)))
+  }
+
+  private async clearConnection(id: string): Promise<void> {
+    const view = this.views.get(id)
+    const profile =
+      view?.webContents.session ?? session.fromPath(join(app.getPath('userData'), 'profiles', id))
+    if (view) {
+      this.views.delete(id)
+      this.window?.contentView.removeChildView(view)
+      view.webContents.close()
+    }
+    // Revoke against the old address before changing the saved connection.
+    await this.sessions.signedOut(id)
+    await profile.clearStorageData()
+    await profile.clearCache()
+    await this.terminal.remove(id)
+    delete this.errors[id]
+    this.titles.delete(id)
   }
 
   private async select(id: string | null): Promise<void> {
