@@ -10,6 +10,7 @@ extraResources:
   - from: CHANGELOG.md
     to: CHANGELOG.md
 asarUnpack:
+  - node_modules/node-pty/**
   - resources/**
 electronFuses:
   enableNodeOptionsEnvironmentVariable: false

@@ -1,3 +1,6 @@
+import type { AppConfig, RuntimeState } from './config'
+import type { ConnectionState } from './connections'
+import type { TerminalTarget, TerminalOutput } from './terminal'
 import type { UpdateState } from './updater'
 
 export interface AppInfo {
@@ -7,6 +10,31 @@ export interface AppInfo {
 }
 
 export interface TetherAPI {
+  onWindowVisibility: (callback: (visible: boolean) => void) => () => void
+  setTerminalHeight: (height: number) => Promise<void>
+  connectTerminal: (
+    target: TerminalTarget,
+    output: (message: TerminalOutput, consumed: () => void) => void
+  ) => number
+  disconnectTerminal: (id: number) => void
+  writeTerminal: (id: number, data: string) => void
+  resizeTerminal: (id: number, cols: number, rows: number) => void
+  setSettingsOpen: (open: boolean) => Promise<void>
+  getConfig: () => Promise<AppConfig>
+  onConfigChanged: (callback: (config: AppConfig) => void) => () => void
+  getLaunchAtLogin: () => Promise<boolean>
+  setLaunchAtLogin: (enabled: boolean) => Promise<boolean>
+  setConfig: (config: Partial<AppConfig>) => Promise<void>
+  getRuntimeState: () => Promise<RuntimeState>
+  installPackage: () => Promise<void>
+  restartTerminal: () => Promise<void>
+  onRuntimeState: (callback: (state: RuntimeState) => void) => () => void
+  listConnections: () => Promise<ConnectionState>
+  addConnection: (input: { name: string; url: string }) => Promise<ConnectionState>
+  selectConnection: (id: string | null) => Promise<void>
+  reloadConnection: () => Promise<void>
+  removeConnection: (id: string) => Promise<void>
+  onConnectionState: (callback: (state: ConnectionState) => void) => () => void
   getAppInfo: () => Promise<AppInfo>
   getUpdateState: () => Promise<UpdateState>
   checkForUpdates: () => Promise<void>

@@ -4,7 +4,11 @@ import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
   main: {},
-  preload: {},
+  preload: {
+    build: {
+      rollupOptions: { input: { index: 'src/preload/index.ts', guest: 'src/preload/guest.ts' } }
+    }
+  },
   renderer: {
     plugins: [tailwindcss(), svelte()]
   }

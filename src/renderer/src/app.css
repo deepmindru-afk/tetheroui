@@ -1,4 +1,20 @@
 @import 'tailwindcss';
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-gray-50: #f9f9f9;
+  --color-gray-100: #ececec;
+  --color-gray-200: #e3e3e3;
+  --color-gray-300: #cdcdcd;
+  --color-gray-400: #b4b4b4;
+  --color-gray-500: #9b9b9b;
+  --color-gray-600: #676767;
+  --color-gray-700: #4e4e4e;
+  --color-gray-800: #333;
+  --color-gray-850: #262626;
+  --color-gray-900: #171717;
+  --color-gray-950: #0d0d0d;
+}
 
 :root {
   font-family:
@@ -7,16 +23,71 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
+  font-size: 13px;
   color-scheme: light dark;
-  background: light-dark(#f9f9f9, #171717);
-  color: light-dark(#171717, #f9f9f9);
+  --text-primary: light-dark(#1d1d1f, #fafafa);
+  --text-secondary: light-dark(#676767, #b4b4b4);
+  --text-placeholder: light-dark(#9b9b9b, #676767);
+  --text-danger: light-dark(#b91c1c, #f87171);
+  --input-background: light-dark(oklch(0.98 0 0 / 0.4), #ffffff08);
+  --input-border: light-dark(oklch(0.94 0 0 / 0.5), #ffffff0a);
+  --focus: light-dark(#60a5fa, #3b82f6);
+  --primary-background: light-dark(#171717, #fff);
+  --primary-text: light-dark(#fff, #171717);
+  --bar-background: light-dark(#fff, #000);
+  --bar-foreground: light-dark(#000, #fff);
+  --bar-muted: light-dark(#666, #999);
+  background: light-dark(#f5f5f7, #0a0a0a);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
 }
 
+html,
+body,
+#app {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
 body {
   margin: 0;
 }
-
-main {
-  min-height: 100vh;
+@layer base {
+  button {
+    border: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    transition: color 150ms;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+  button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+::selection {
+  background: light-dark(#0000001f, #ffffff26);
+}
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: light-dark(#00000014, #ffffff14);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+@media (prefers-reduced-motion: reduce) {
+  button {
+    transition: none;
+  }
 }
