@@ -396,7 +396,7 @@
             setEnv(
               'OPEN_TERMINAL_FILE_BROWSER_ROOT',
               event.currentTarget.value === 'custom'
-                ? homeDirectory || defaultHomeDirectory
+                ? homeDirectory.trim() || defaultHomeDirectory
                 : event.currentTarget.value
             )}
         >
@@ -599,7 +599,7 @@
     flex-shrink: 0;
     max-width: 55%;
   }
-  .setting-select {
+  .env-input.setting-select {
     appearance: none;
     padding-inline-end: 28px;
   }
@@ -612,7 +612,7 @@
     width: 14px;
     height: 14px;
   }
-  .session-limit {
+  .env-input.session-limit {
     width: 72px;
     flex-shrink: 0;
   }
