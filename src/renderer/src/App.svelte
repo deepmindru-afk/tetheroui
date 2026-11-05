@@ -42,7 +42,31 @@
         }[state.terminalStatus]
   )
   let viewportHeight = $state(680)
-  const dockHeight = $derived(Math.min(160, Math.max(0, viewportHeight - 160)))
+  let panelHeight = $state(160)
+  const maxDockHeight = $derived(Math.min(1000, Math.max(108, viewportHeight - 160)))
+  const dockHeight = $derived(Math.min(panelHeight, maxDockHeight))
+  let drag: { target: HTMLElement; pointerId: number; y: number; height: number } | null = null
+
+  function resizeTerminal(height: number): void {
+    panelHeight = Math.max(108, Math.min(maxDockHeight, height))
+  }
+
+  function endResize(): void {
+    if (!drag) return
+    const { target, pointerId } = drag
+    drag = null
+    if (target.hasPointerCapture(pointerId)) target.releasePointerCapture(pointerId)
+  }
+
+  function startResize(event: PointerEvent): void {
+    if (event.button !== 0) return
+    event.preventDefault()
+    endResize()
+    const target = event.currentTarget as HTMLElement
+    // Keep receiving movement when the pointer crosses the embedded WebUI.
+    target.setPointerCapture(event.pointerId)
+    drag = { target, pointerId: event.pointerId, y: event.clientY, height: dockHeight }
+  }
 
   $effect(() => {
     void window.api.setTerminalHeight(terminalOpen ? dockHeight : 0).catch((cause) => {
@@ -139,6 +163,7 @@
       state = value
     })
     return () => {
+      endResize()
       unsubscribe()
       unsubscribeConfig()
       unsubscribeRuntime()
@@ -169,7 +194,7 @@
   </svg>
 {/snippet}
 
-<svelte:window bind:innerHeight={viewportHeight} />
+<svelte:window bind:innerHeight={viewportHeight} onblur={endResize} />
 
 <svelte:head>
   <title>{state.title}</title>
@@ -325,6 +350,32 @@
   </main>
 
   <footer class="connection-bar">
+    {#if terminalOpen}
+      <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+      <div
+        class="resize-edge"
+        role="separator"
+        aria-label="Resize terminal"
+        aria-orientation="horizontal"
+        aria-valuenow={dockHeight}
+        aria-valuemin={108}
+        aria-valuemax={maxDockHeight}
+        tabindex="0"
+        onpointerdown={startResize}
+        onpointermove={(event) => {
+          if (drag) resizeTerminal(drag.height + drag.y - event.clientY)
+        }}
+        onpointerup={endResize}
+        onpointercancel={endResize}
+        onlostpointercapture={endResize}
+        onkeydown={(event) => {
+          if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+            event.preventDefault()
+            resizeTerminal(dockHeight + (event.key === 'ArrowUp' ? 20 : -20))
+          }
+        }}
+      ></div>
+    {/if}
     <button class="manage-button" aria-label="Settings" onclick={() => toggleSettings(true)}>
       <span class="inline-flex size-[12px] shrink-0 [&>svg]:size-full" aria-hidden="true"
         >{@html SettingsIcon}</span
@@ -751,6 +802,7 @@
     color: var(--text-danger);
   }
   .connection-bar {
+    position: relative;
     display: flex;
     align-items: center;
     flex-shrink: 0;
@@ -759,6 +811,19 @@
     background: var(--bar-background);
     color: var(--bar-muted);
     font-size: 11px;
+  }
+  .resize-edge {
+    position: absolute;
+    top: 0;
+    inset-inline: 0;
+    height: 6px;
+    z-index: 1;
+    cursor: ns-resize;
+    touch-action: none;
+  }
+  .resize-edge:focus-visible {
+    outline: 1px solid var(--bar-muted);
+    outline-offset: -3px;
   }
   .connection-bar button {
     display: flex;
