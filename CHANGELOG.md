@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-11-05
+
+### Changed
+
+- **Fewer pauses during remote transfers.** Tether can now send more data before waiting for a reply from WebUI, helping large file transfers, terminal output, and browser images move faster on connections with noticeable delay. This requires a WebUI version that supports the change. Older WebUI versions keep the previous behavior and still connect normally.
+- **Terminal input gets a turn during busy transfers.** File transfers, terminal traffic, and browser updates now take turns sending small pieces of data over the shared connection, so one large transfer does not send everything ahead of the others.
+- **Downloads in the README.** Added direct download links for Mac, Windows, and Linux, plus a link to Snap and Flatpak packages. The README also links to the new manifesto explaining how Tether lets you reach your own computer from another device, and directs bug reports and ideas to GitHub issues.
+
+### Fixed
+
+- **Memory use when a remote connection falls behind.** Limited how much terminal and browser output Tether keeps waiting to send. If too much builds up, Tether closes the affected connection instead of continuing to collect output in memory.
+
 ## [0.1.1] - 2026-11-05
 
 ### Added
