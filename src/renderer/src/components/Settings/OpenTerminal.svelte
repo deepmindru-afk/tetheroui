@@ -1,4 +1,5 @@
 <script lang="ts">
+  import i18n from '../../lib/i18n'
   import { onMount } from 'svelte'
   import { parseLocalServerConfig, type RuntimeState } from '../../../../shared/config'
 
@@ -51,7 +52,7 @@
     const entries = env.filter((row) => row.name.trim() || row.value)
     const names = entries.map((row) => row.name.trim().toUpperCase())
     if (new Set(names).size !== names.length)
-      throw new Error('Environment variable names must be unique.')
+      throw new Error($i18n.t('settings.terminal.uniqueVariables'))
     const config = {
       localServer: parseLocalServerConfig({
         enabled,
@@ -175,7 +176,7 @@
       <p
         class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5"
       >
-        {runtime.version ? `v${runtime.version}` : 'Not installed'}
+        {runtime.version ? `v${runtime.version}` : $i18n.t('settings.openwebui.notInstalled')}
       </p>
     </div>
     <button
@@ -183,10 +184,10 @@
       disabled={busy}
       onclick={install}
       >{installing || (runtime.busy && !uninstalling)
-        ? 'Installing…'
+        ? $i18n.t('common.installing')
         : runtime.version && enabled
-          ? 'Update'
-          : 'Install'}</button
+          ? $i18n.t('common.update')
+          : $i18n.t('common.install')}</button
     >
   </div>
   <div
@@ -195,19 +196,20 @@
     <div>
       <label
         for="terminal-version"
-        class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">Version</label
+        class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white"
+        >{$i18n.t('common.version')}</label
       >
       <p
         class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5"
       >
-        Leave blank for latest.
+        {$i18n.t('settings.terminal.latestDesc')}
       </p>
     </div>
     <input
       id="terminal-version"
-      aria-label="Open Terminal version"
+      aria-label={$i18n.t('settings.terminal.version')}
       class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-[96px]"
-      placeholder="Latest"
+      placeholder={$i18n.t('common.latest')}
       bind:value={version}
       disabled={busy}
       maxlength="100"
@@ -220,17 +222,17 @@
   >
     <div>
       <div class="text-[12px] leading-[16px] font-normal text-[#171717] dark:text-white">
-        Auto-update
+        {$i18n.t('settings.openwebui.autoUpdate')}
       </div>
       <p
         class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5"
       >
-        Update on startup when using latest.
+        {$i18n.t('settings.terminal.autoUpdateDesc')}
       </p>
     </div>
     <Switch
       checked={autoUpdate}
-      label="Auto-update"
+      label={$i18n.t('settings.openwebui.autoUpdate')}
       disabled={busy || !!version.trim()}
       onchange={(value) => {
         autoUpdate = value
@@ -241,13 +243,14 @@
   <p
     class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)] mt-0.5 mt-3!"
   >
-    Optional. Install enables local files and commands for your connected Open WebUI instances.
-    Update applies your selected version and restarts local terminals.
+    {$i18n.t('settings.terminal.description')}
   </p>
-  <section class="mt-5" aria-label="Home directory">
-    <label for="terminal-home" class="text-[12px] leading-[16px] font-normal">Home directory</label>
+  <section class="mt-5" aria-label={$i18n.t('settings.terminal.homeDirectory')}>
+    <label for="terminal-home" class="text-[12px] leading-[16px] font-normal"
+      >{$i18n.t('settings.terminal.homeDirectory')}</label
+    >
     <p class="mt-0.5 text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
-      Starting folder for files and commands. Leave blank to use your user folder.
+      {$i18n.t('settings.terminal.homeDirectoryDesc')}
     </p>
     <div class="mt-2 flex items-center gap-3">
       <input
@@ -260,18 +263,22 @@
         autocapitalize="off"
         onchange={saveSettings}
       />
-      <button class="env-action shrink-0" disabled={busy} onclick={chooseDirectory}>Browse</button>
+      <button class="env-action shrink-0" disabled={busy} onclick={chooseDirectory}
+        >{$i18n.t('common.browse')}</button
+      >
     </div>
   </section>
-  <section class="mt-5" aria-label="Environment variables">
+  <section class="mt-5" aria-label={$i18n.t('settings.general.environmentVariables')}>
     <div class="flex items-center justify-between gap-4 py-[7px]">
-      <h3 class="text-[12px] leading-[16px] font-normal">Environment variables</h3>
+      <h3 class="text-[12px] leading-[16px] font-normal">
+        {$i18n.t('settings.general.environmentVariables')}
+      </h3>
       <button
         class="env-action"
         disabled={busy || env.some((row) => !row.name.trim())}
         onclick={() => {
           env = [...env, { name: '', value: '' }]
-        }}>Add variable</button
+        }}>{$i18n.t('settings.terminal.addVariable')}</button
       >
     </div>
     <datalist id={`${id}-names`}>
@@ -289,8 +296,8 @@
         <div class="env-row">
           <input
             class="env-input"
-            aria-label={`Variable name ${index + 1}`}
-            placeholder="Name"
+            aria-label={$i18n.t('settings.terminal.variableName', { number: index + 1 })}
+            placeholder={$i18n.t('common.name')}
             list={`${id}-names`}
             autocomplete="off"
             title={row.name}
@@ -303,8 +310,8 @@
           />
           <input
             class="env-input"
-            aria-label={`Variable value ${index + 1}`}
-            placeholder="Value"
+            aria-label={$i18n.t('settings.terminal.variableValue', { number: index + 1 })}
+            placeholder={$i18n.t('common.value')}
             list={options.length ? `${id}-values-${index}` : undefined}
             autocomplete="off"
             bind:value={row.value}
@@ -320,39 +327,42 @@
           {/if}
           <button
             class="env-action"
-            aria-label={`Remove variable ${index + 1}`}
+            aria-label={$i18n.t('settings.terminal.removeVariable', { number: index + 1 })}
             disabled={busy}
             onclick={() => {
               env = env.filter((_, i) => i !== index)
               saveSettings()
-            }}>Remove</button
+            }}>{$i18n.t('common.remove')}</button
           >
         </div>
       {/each}
     </div>
     <div class="mt-2 flex items-start justify-between gap-4">
       <p class="text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]">
-        Saved on this device. Changes apply when Open Terminal restarts.
+        {$i18n.t('settings.terminal.environmentDesc')}
       </p>
       <button
         class="env-action shrink-0"
         disabled={busy || !runtime.version || !enabled}
-        onclick={restart}>{restarting ? 'Restarting…' : 'Restart to apply'}</button
+        onclick={restart}
+        >{restarting
+          ? $i18n.t('common.restarting')
+          : $i18n.t('settings.terminal.restartToApply')}</button
       >
     </div>
   </section>
   {#if runtime.version || enabled}
     <div class="mt-[10px] flex min-w-0 items-center justify-between gap-[16px] pt-[16px] pb-[7px]">
       <div>
-        <div class="text-[12px] leading-[16px] font-normal">Uninstall</div>
+        <div class="text-[12px] leading-[16px] font-normal">{$i18n.t('common.uninstall')}</div>
         <p
           class="mt-0.5 text-[11px] leading-[16px] text-[oklch(0.51_0_0)] dark:text-[oklch(0.77_0_0)]"
         >
-          Remove the Open Terminal package.
+          {$i18n.t('settings.terminal.uninstallDesc')}
         </p>
       </div>
       <button class="env-action shrink-0" disabled={busy} onclick={uninstall}>
-        {uninstalling ? 'Uninstalling…' : 'Uninstall'}
+        {uninstalling ? $i18n.t('common.uninstalling') : $i18n.t('common.uninstall')}
       </button>
     </div>
   {/if}

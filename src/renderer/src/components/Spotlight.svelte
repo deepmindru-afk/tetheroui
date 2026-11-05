@@ -1,4 +1,5 @@
 <script lang="ts">
+  import i18n from '../lib/i18n'
   /* eslint-disable svelte/no-at-html-tags -- Icons are static SVG imports from Iconoir. */
   import { onMount, tick } from 'svelte'
   import ArrowUp from 'iconoir/icons/arrow-up.svg?raw'
@@ -82,11 +83,11 @@
     const current = generation
     try {
       for (const file of images) {
-        if (file.size > MAX_IMAGE_BYTES) throw new Error('Images must be smaller than 10 MB.')
+        if (file.size > MAX_IMAGE_BYTES) throw new Error($i18n.t('spotlight.imageTooLarge'))
         const dataUrl = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader()
           reader.onload = () => resolve(String(reader.result))
-          reader.onerror = () => reject(new Error('Could not read the clipboard image.'))
+          reader.onerror = () => reject(new Error($i18n.t('spotlight.clipboardError')))
           reader.readAsDataURL(file)
         })
         if (current !== generation) return
@@ -135,7 +136,7 @@
   async function capture(pickScreen = false): Promise<void> {
     if (busy || capturing) return
     if (files.length >= MAX_IMAGES) {
-      error = 'Attach up to four images.'
+      error = $i18n.t('spotlight.tooManyImages')
       return
     }
     capturing = true
@@ -219,7 +220,7 @@
   {#if preview}<img
       class="screen-preview"
       src={preview}
-      alt="Selected screen. Drag to select a region."
+      alt={$i18n.t('spotlight.screenSelection')}
     />{/if}
   {#if selecting && rect.width > 8 && rect.height > 8}
     <div
@@ -232,7 +233,7 @@
   {/if}
   <section
     class="bar rounded-[20px] border border-black/5 bg-white px-[12px] pb-[12px] pt-[8px] shadow-2xl dark:border-white/10 dark:bg-gray-900"
-    aria-label="Tether Spotlight"
+    aria-label={$i18n.t('spotlight.title')}
     style:left={`${x}px`}
     style:top={`${y}px`}
     style:width={`${barWidth}px`}
@@ -241,7 +242,7 @@
       <span class="cursor-move font-medium">Tether</span>
       {#if connections.length}
         <select
-          aria-label="Send to WebUI"
+          aria-label={$i18n.t('spotlight.destination')}
           title={destination?.url}
           disabled={busy}
           class="max-w-[65%] truncate rounded-[6px] bg-transparent px-[4px] py-[2px] outline-none focus:ring-1 focus:ring-blue-400"
@@ -251,13 +252,15 @@
             error = ''
           }}
         >
-          {#if !validDestination}<option value="" disabled>Select a connection</option>{/if}
+          {#if !validDestination}<option value="" disabled
+              >{$i18n.t('spotlight.selectConnection')}</option
+            >{/if}
           {#each connections as connection (connection.id)}<option value={connection.id}
               >{connection.name}</option
             >{/each}
         </select>
       {:else}<button class="underline underline-offset-2" onclick={() => api.addConnection()}
-          >Add connection</button
+          >{$i18n.t('connections.add')}</button
         >{/if}
       <div class="flex-1"></div>
       {#if query || files.length}<button
@@ -269,11 +272,15 @@
             error = ''
             preview = ''
             input?.focus()
-          }}>Clear</button
+          }}>{$i18n.t('common.clear')}</button
         >{/if}
       <span class="text-gray-400/60 dark:text-gray-600/70">
-        {busy ? 'Sending…' : capturing ? 'Capturing…' : '↵ Send'} · Esc Close
-      </span>
+        {busy
+          ? $i18n.t('spotlight.sending')
+          : capturing
+            ? $i18n.t('spotlight.capturing')
+            : $i18n.t('spotlight.sendHint')}{$i18n.t('spotlight.closeHint')}</span
+      >
     </div>
     {#if files.length}
       <div class="preview mb-[12px] flex flex-wrap gap-[8px]">
@@ -285,7 +292,7 @@
               class="h-[72px] w-[96px] rounded-[8px] border border-black/5 object-cover dark:border-white/10"
             />
             <button
-              aria-label={`Remove image ${i + 1}`}
+              aria-label={$i18n.t('spotlight.removeImage', { number: i + 1 })}
               disabled={busy}
               class="absolute -right-[4px] -top-[4px] size-[18px] rounded-full bg-gray-900 p-[3px] text-white [&>svg]:size-full"
               onclick={() => (files = files.filter((_, index) => index !== i))}
@@ -299,8 +306,8 @@
       <textarea
         bind:this={input}
         bind:value={query}
-        aria-label="Ask WebUI"
-        placeholder="What can I help you with today?"
+        aria-label={$i18n.t('spotlight.ask')}
+        placeholder={$i18n.t('spotlight.placeholder')}
         rows="1"
         maxlength="100000"
         disabled={busy}
@@ -313,7 +320,7 @@
         }}
       ></textarea>
       <button
-        aria-label="Send"
+        aria-label={$i18n.t('common.send')}
         disabled={busy || capturing || !validDestination || (!query.trim() && !files.length)}
         onclick={submit}
         class="size-[30px] shrink-0 rounded-full bg-gray-900 p-[7px] text-white dark:bg-white dark:text-gray-900 [&>svg]:size-full [&>svg]:stroke-[2.5]"
@@ -326,15 +333,15 @@
         disabled={busy || capturing}
         onclick={() => capture(true)}
       >
-        <span class="size-[12px] [&>svg]:size-full" aria-hidden="true">{@html Camera}</span>
-        Choose a screen to capture
-      </button>
+        <span class="size-[12px] [&>svg]:size-full" aria-hidden="true">{@html Camera}</span
+        >{$i18n.t('spotlight.chooseScreen')}</button
+      >
     {/if}
     {#if !validDestination && destination}<p
         role="alert"
         class="mt-3 text-[12px] text-red-600 dark:text-red-400"
       >
-        The saved connection changed. Choose a destination above.
+        {$i18n.t('spotlight.connectionChanged')}
       </p>{/if}
     {#if error}<p role="alert" class="mt-3 text-[12px] text-red-600 dark:text-red-400 select-text">
         {error}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import i18n, { getLanguages, changeLanguage } from '../../lib/i18n'
   /* eslint-disable svelte/no-at-html-tags -- Icons are static SVG imports from Iconoir. */
   import { onMount } from 'svelte'
   import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
@@ -16,28 +17,29 @@
   let advancedOpen = $state(false)
   let resetting = $state(false)
   let error = $state('')
-  const toggles = [
+  const languages = getLanguages()
+  const toggles = $derived([
     {
       key: 'spotlightClipboardPaste',
-      label: 'Paste clipboard into Spotlight',
-      description: 'Prefill an empty Spotlight draft with clipboard text.'
+      label: $i18n.t('settings.general.clipboardPaste'),
+      description: $i18n.t('settings.general.clipboardPasteDesc')
     },
     {
       key: 'startMinimized',
-      label: 'Start minimized',
-      description: 'Start Tether without opening a window.'
+      label: $i18n.t('settings.general.startMinimized'),
+      description: $i18n.t('settings.general.startMinimizedDesc')
     },
     {
       key: 'runInBackground',
-      label: 'Run in background',
-      description: 'Keep Tether running when you close the window.'
+      label: $i18n.t('settings.general.runInBackground'),
+      description: $i18n.t('settings.general.runInBackgroundDesc')
     },
     {
       key: 'showMenuBarIcon',
-      label: 'Show menu bar icon',
-      description: 'Show Tether in the macOS menu bar.'
+      label: $i18n.t('settings.general.showMenuBarIcon'),
+      description: $i18n.t('settings.general.showMenuBarIconDesc')
     }
-  ] as const
+  ] as const)
 
   onMount(() => {
     let disposed = false
@@ -170,8 +172,35 @@
 <div class="general-settings">
   <div class="setting-row">
     <div>
-      <label class="setting-label" for="device-name">Device name</label>
-      <p class="setting-description">Shown in Open WebUI. Leave blank to use the device name.</p>
+      <label class="setting-label" for="language">{$i18n.t('settings.general.language')}</label>
+      <p class="setting-description">{$i18n.t('settings.general.languageDesc')}</p>
+    </div>
+    <div class="select-wrapper">
+      <select
+        id="language"
+        class="setting-input"
+        value={$i18n.resolvedLanguage}
+        disabled={!loaded || busy}
+        onchange={async (event) => {
+          const language = event.currentTarget.value
+          await save({ language })
+          if (!error) await changeLanguage(language)
+        }}
+      >
+        {#each languages as language (language.code)}
+          <option value={language.code}>{language.title}</option>
+        {/each}
+      </select>
+      <span aria-hidden="true" class="select-chevron inline-flex [&>svg]:size-full"
+        >{@html NavArrowDownIcon}</span
+      >
+    </div>
+  </div>
+  <div class="setting-row">
+    <div>
+      <label class="setting-label" for="device-name">{$i18n.t('settings.general.deviceName')}</label
+      >
+      <p class="setting-description">{$i18n.t('settings.general.deviceNameDesc')}</p>
     </div>
     <input
       id="device-name"
@@ -185,8 +214,8 @@
   </div>
   <div class="setting-row">
     <div>
-      <label class="setting-label" for="appearance">Appearance</label>
-      <p class="setting-description">Choose how Tether looks.</p>
+      <label class="setting-label" for="appearance">{$i18n.t('settings.general.appearance')}</label>
+      <p class="setting-description">{$i18n.t('settings.general.appearanceDesc')}</p>
     </div>
     <div class="select-wrapper">
       <select
@@ -196,9 +225,9 @@
         disabled={!loaded || busy}
         onchange={(event) => save({ theme: event.currentTarget.value as GeneralConfig['theme'] })}
       >
-        <option value="system">Auto</option><option value="light">Light</option><option value="dark"
-          >Dark</option
-        >
+        <option value="system">{$i18n.t('common.auto')}</option><option value="light"
+          >{$i18n.t('settings.general.light')}</option
+        ><option value="dark">{$i18n.t('settings.general.dark')}</option>
       </select>
       <span aria-hidden="true" class="select-chevron inline-flex [&>svg]:size-full"
         >{@html NavArrowDownIcon}</span
@@ -208,12 +237,12 @@
   {#if platform !== 'linux'}
     <div class="setting-row">
       <div>
-        <div class="setting-label">Launch at login</div>
-        <p class="setting-description">Open Tether when you sign in to your computer.</p>
+        <div class="setting-label">{$i18n.t('settings.general.launchAtLogin')}</div>
+        <p class="setting-description">{$i18n.t('settings.general.launchAtLoginDesc')}</p>
       </div>
       <Switch
         checked={launchAtLogin}
-        label="Launch at login"
+        label={$i18n.t('settings.general.launchAtLogin')}
         disabled={!loaded || busy}
         onchange={setLaunchAtLogin}
       />
@@ -235,7 +264,7 @@
       </div>
     {/if}
   {/each}
-  {#each [{ key: 'globalShortcut', label: 'Open Tether shortcut', description: 'Bring Tether to the foreground from any app.' }, { key: 'spotlightShortcut', label: 'Open Spotlight shortcut', description: 'Send a prompt, screenshot or clipboard image to WebUI.' }] as setting (setting.key)}
+  {#each [{ key: 'globalShortcut', label: $i18n.t('settings.general.globalShortcut'), description: $i18n.t('settings.general.globalShortcutDesc') }, { key: 'spotlightShortcut', label: $i18n.t('settings.general.spotlightShortcut'), description: $i18n.t('settings.general.spotlightShortcutDesc') }] as setting (setting.key)}
     <div class="setting-row">
       <div>
         <div class="setting-label">{setting.label}</div>
@@ -256,14 +285,14 @@
           onblur={() => (recording = null)}
         >
           {recording === setting.key
-            ? 'Press a shortcut…'
-            : shortcut(config[setting.key]) || 'Disabled'}
+            ? $i18n.t('settings.general.pressShortcut')
+            : shortcut(config[setting.key]) || $i18n.t('common.disabled')}
         </button>
         {#if config[setting.key] && recording !== setting.key}
           <button
             class="clear-shortcut"
-            aria-label={`Clear ${setting.label}`}
-            title="Clear shortcut"
+            aria-label={$i18n.t('settings.general.clearNamedShortcut', { shortcut: setting.label })}
+            title={$i18n.t('settings.general.clearShortcut')}
             disabled={!loaded || busy}
             onclick={() => save({ [setting.key]: '' })}
           >
@@ -277,7 +306,7 @@
   {/each}
   <div class="setting-row">
     <button class="shortcut-button" onclick={() => window.api.openSpotlight()}
-      >Open Spotlight</button
+      >{$i18n.t('settings.general.openSpotlight')}</button
     >
   </div>
   <div class="pt-[16px]">
@@ -292,17 +321,17 @@
         class="inline-flex size-[12px] shrink-0 items-center justify-center leading-none transition-transform duration-200 [&>svg]:size-full"
         class:-rotate-90={!advancedOpen}>{@html NavArrowDownIcon}</span
       >
-      <span class="setting-label">Advanced</span>
+      <span class="setting-label">{$i18n.t('common.advanced')}</span>
     </button>
     {#if advancedOpen}
       <div id="advanced-settings" class="flex flex-col">
         <div class="setting-row">
           <div>
-            <div class="setting-label">Factory reset</div>
-            <p class="setting-description">Remove runtimes, packages, data &amp; connections</p>
+            <div class="setting-label">{$i18n.t('settings.general.factoryReset')}</div>
+            <p class="setting-description">{$i18n.t('settings.general.factoryResetDesc')}</p>
           </div>
           <button class="reset-button" disabled={!loaded || busy || resetting} onclick={reset}
-            >{resetting ? 'Resetting…' : 'Reset'}</button
+            >{resetting ? $i18n.t('common.resetting') : $i18n.t('common.reset')}</button
           >
         </div>
       </div>

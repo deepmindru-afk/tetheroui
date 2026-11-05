@@ -1,4 +1,5 @@
 <script lang="ts">
+  import i18n from '../lib/i18n'
   /* eslint-disable svelte/no-at-html-tags -- Icons are static SVG imports from Iconoir. */
   import { onMount } from 'svelte'
   import { Terminal, type ITheme } from '@xterm/xterm'
@@ -28,7 +29,7 @@
       clearTimeout(copyTimer)
       copyTimer = setTimeout(() => (copied = false), 1500)
     } catch {
-      error = 'Could not copy terminal output.'
+      error = $i18n.t('terminal.copyError')
     }
   }
 
@@ -95,8 +96,8 @@
 {#if error}<div class="terminal-error" role="status">{error}</div>{/if}
 <button
   class="copy-output"
-  aria-label="Copy terminal output"
-  title={copied ? 'Copied' : 'Copy terminal output'}
+  aria-label={$i18n.t('terminal.copyOutput')}
+  title={copied ? $i18n.t('logs.copied') : $i18n.t('terminal.copyOutput')}
   onclick={copy}
 >
   <span aria-hidden="true" class="inline-flex size-[12px] [&>svg]:size-full"

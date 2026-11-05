@@ -1,4 +1,5 @@
 <script lang="ts">
+  import i18n from '../lib/i18n'
   /* eslint-disable svelte/no-at-html-tags -- Icons are static SVG imports from Iconoir. */
   import { onMount } from 'svelte'
   import { fade } from 'svelte/transition'
@@ -18,31 +19,29 @@
   let dialog: HTMLDialogElement
   let search = $state('')
   let showSearch = $state(false)
-  const tabs = [
+  const tabs = $derived([
     {
       id: 'general',
-      label: 'General',
+      label: $i18n.t('settings.tabs.general'),
       icon: SettingsIcon,
       group: null,
-      keywords:
-        'device name appearance theme auto light dark login minimized background menu bar icon keyboard shortcut spotlight screenshot clipboard advanced factory reset'
+      keywords: $i18n.t('settings.general.searchTerms')
     },
     {
       id: 'terminal',
       label: 'Open Terminal',
       icon: TerminalIcon,
-      group: 'Services',
-      keywords:
-        'version latest install update auto-update local tools environment variables restart home directory folder'
+      group: $i18n.t('settings.groups.services'),
+      keywords: $i18n.t('settings.terminal.searchTerms')
     },
     {
       id: 'about',
-      label: 'About',
+      label: $i18n.t('settings.tabs.about'),
       icon: InfoCircleIcon,
       group: null,
-      keywords: 'Tether version platform software update changelog GitHub'
+      keywords: $i18n.t('settings.about.searchTerms')
     }
-  ]
+  ])
   const filteredTabs = $derived(
     tabs.filter((tab) =>
       `${tab.label} ${tab.keywords}`.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase())
@@ -55,7 +54,7 @@
 
 <dialog
   bind:this={dialog}
-  aria-label="Settings"
+  aria-label={$i18n.t('settings.title')}
   class="fixed inset-0 m-0 h-full max-h-none w-full max-w-none bg-transparent p-[16px] open:flex open:items-center open:justify-center sm:p-[24px] lg:p-[32px]"
   oncancel={(event) => {
     event.preventDefault()
@@ -78,7 +77,10 @@
       class="flex h-full w-full min-h-0 flex-col bg-white text-[12px] leading-[16px] text-[oklch(0.2_0_0)] md:flex-row dark:bg-[oklch(0.2_0_0)] dark:text-[oklch(0.85_0_0)] dark:[color-scheme:dark] [&_:is(button,input,select,textarea):focus-visible]:outline-2 [&_:is(button,input,select,textarea):focus-visible]:outline-offset-2 [&_:is(button,input,select,textarea):focus-visible]:outline-blue-500 motion-reduce:[&_*]:transition-none motion-reduce:[&_*]:animate-none"
       in:fade={{ duration: 150 }}
     >
-      <nav class="flex min-w-0 shrink-0 flex-col md:min-h-0 md:w-[208px]" aria-label="Settings">
+      <nav
+        class="flex min-w-0 shrink-0 flex-col md:min-h-0 md:w-[208px]"
+        aria-label={$i18n.t('settings.title')}
+      >
         <div class="m-1 flex shrink-0 items-center gap-1 md:mb-0">
           <button
             type="button"
@@ -87,13 +89,12 @@
           >
             <span class="inline-flex size-[12px] shrink-0 [&>svg]:size-full" aria-hidden="true"
               >{@html NavArrowLeftIcon}</span
-            >
-            Back
-          </button>
+            >{$i18n.t('settings.back')}</button
+          >
           <button
             type="button"
             class="flex size-[28px] shrink-0 items-center justify-center rounded-[8px] text-[oklch(0.51_0_0)] hover:text-[oklch(0.42_0_0)] md:hidden dark:text-[oklch(0.69_0_0)] dark:hover:text-[oklch(0.85_0_0)]"
-            aria-label="Search settings"
+            aria-label={$i18n.t('settings.search')}
             aria-expanded={showSearch || !!search}
             aria-controls="settings-search"
             onclick={() => (showSearch = !showSearch)}
@@ -116,10 +117,10 @@
           >
           <input
             id="settings-search"
-            aria-label="Search settings"
+            aria-label={$i18n.t('settings.search')}
             class="h-[28px] min-h-[28px] max-w-full rounded-[8px] border border-[oklch(0.94_0_0/0.5)] outline-hidden! bg-[oklch(0.98_0_0/0.4)] px-[8px] py-0 text-[12px] leading-[16px] font-normal text-[oklch(0.42_0_0)] transition-colors duration-150 placeholder:text-[oklch(0.85_0_0)] focus:border-blue-400 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/[0.04] dark:bg-white/[0.03] dark:text-[oklch(0.85_0_0)] dark:placeholder:text-[oklch(0.42_0_0)] dark:focus:border-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-outer-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-inner-spin-button]:m-0 [&[type=number]]:[-moz-appearance:textfield] w-full min-w-0 pl-[30px]"
             bind:value={search}
-            placeholder="Search settings"
+            placeholder={$i18n.t('settings.search')}
             onkeydown={(event) => {
               if (event.key === 'Enter' && filteredTabs[0]) settingsTab = filteredTabs[0].id
             }}
@@ -156,7 +157,7 @@
             </button>
           {:else}
             <div role="status" class="px-[8px] py-1 text-gray-800 dark:text-gray-400">
-              No matching settings
+              {$i18n.t('settings.noResults')}
             </div>
           {/each}
         </div>

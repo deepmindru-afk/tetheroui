@@ -7,6 +7,7 @@ export interface LocalServerConfig {
 }
 
 export interface GeneralConfig {
+  language: string
   deviceName: string
   theme: 'system' | 'light' | 'dark'
   startMinimized: boolean
@@ -19,6 +20,7 @@ export interface GeneralConfig {
 }
 
 export const defaultGeneralConfig: GeneralConfig = {
+  language: '',
   deviceName: '',
   theme: 'system',
   startMinimized: false,
@@ -42,6 +44,11 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
     )
   )
     throw new Error('Device name must be at most 100 characters without control characters.')
+  if (
+    typeof config.language !== 'string' ||
+    !/^(?:[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)?$/.test(config.language)
+  )
+    throw new Error('Invalid language')
   if (!['system', 'light', 'dark'].includes(config.theme)) throw new Error('Invalid appearance')
   for (const key of [
     'startMinimized',
@@ -62,6 +69,7 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
   )
     throw new Error('Invalid Spotlight position')
   return {
+    language: config.language,
     deviceName: config.deviceName.trim(),
     theme: config.theme,
     startMinimized: config.startMinimized,

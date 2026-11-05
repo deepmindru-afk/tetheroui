@@ -1,4 +1,5 @@
 <script lang="ts">
+  import i18n from './lib/i18n'
   /* eslint-disable svelte/no-at-html-tags -- Icons are static SVG imports from Iconoir. */
   import { onMount } from 'svelte'
   import { tooltip } from './actions/tooltip'
@@ -38,17 +39,17 @@
   )
   const terminalStatusLabel = $derived(
     !openTerminalInstalled && state.terminalStatus === 'stopped'
-      ? 'Not installed'
+      ? $i18n.t('settings.openwebui.notInstalled')
       : state.selected && openTerminalRunning
         ? state.webuiConnected
-          ? 'Connected to WebUI'
-          : 'Running locally · Not connected to WebUI'
+          ? $i18n.t('terminal.connected')
+          : $i18n.t('terminal.localOnly')
         : {
-            started: 'Running',
-            starting: 'Starting',
-            stopping: 'Stopping',
-            stopped: 'Stopped',
-            failed: 'Failed'
+            started: $i18n.t('common.running'),
+            starting: $i18n.t('common.starting'),
+            stopping: $i18n.t('common.stopping'),
+            stopped: $i18n.t('common.stopped'),
+            failed: $i18n.t('common.failed')
           }[state.terminalStatus]
   )
   let viewportHeight = $state(680)
@@ -230,16 +231,16 @@
 <svelte:window bind:innerHeight={viewportHeight} onblur={endResize} />
 
 <svelte:head>
-  <title>{state.title}</title>
+  <title>{settingsOpen ? $i18n.t('settings.title') : state.title}</title>
 </svelte:head>
 
 <div class="shell" style:--titlebar-height={appInfo?.platform === 'darwin' ? '28px' : '32px'}>
   <header class="titlebar" title={selected?.url}>
-    <span>{state.title}</span>
+    <span>{settingsOpen ? $i18n.t('settings.title') : state.title}</span>
     <button
       class="refresh-button"
-      aria-label="Refresh"
-      use:tooltip={'Refresh'}
+      aria-label={$i18n.t('common.refresh')}
+      use:tooltip={$i18n.t('common.refresh')}
       disabled={!state.selected || busy}
       onclick={() => run(() => window.api.reloadConnection())}
     >
@@ -262,7 +263,7 @@
       <TetherBackground paused={!windowVisible} />
       <div class="connection-page" class:welcome={state.connections.length === 0}>
         {#if state.connections.length}
-          <h1>Connections</h1>
+          <h1>{$i18n.t('connections.title')}</h1>
           <div class="saved-connections">
             {#each state.connections as connection (connection.id)}
               <section aria-label={connection.name}>
@@ -282,22 +283,22 @@
                     class="text-button"
                     disabled={busy}
                     aria-pressed={editing === connection.id}
-                    onclick={() => editConnection(connection)}>Edit</button
+                    onclick={() => editConnection(connection)}>{$i18n.t('common.edit')}</button
                   >
                   <button
                     class="text-button remove-button"
                     disabled={busy}
                     aria-expanded={removing === connection.id}
                     onclick={() => (removing = removing === connection.id ? null : connection.id)}
-                    >Remove</button
+                    >{$i18n.t('common.remove')}</button
                   >
                 </div>
                 {#if removing === connection.id}
                   <div class="remove-confirmation">
-                    <p>Remove this connection and sign out?</p>
+                    <p>{$i18n.t('connections.removeConfirm')}</p>
                     <div class="confirmation-actions">
                       <button class="text-button" disabled={busy} onclick={() => (removing = null)}
-                        >Cancel</button
+                        >{$i18n.t('common.cancel')}</button
                       >
                       <button
                         class="text-button"
@@ -307,7 +308,7 @@
                             await window.api.removeConnection(connection.id)
                             if (editing === connection.id) cancelEdit()
                             removing = null
-                          })}>Remove and sign out</button
+                          })}>{$i18n.t('connections.removeAndSignOut')}</button
                       >
                     </div>
                   </div>
@@ -318,10 +319,10 @@
               </section>
             {/each}
           </div>
-          <h2>{editing ? 'Edit connection' : 'Add connection'}</h2>
+          <h2>{editing ? $i18n.t('connections.edit') : $i18n.t('connections.add')}</h2>
         {:else}
-          <h1>Connect to Open WebUI</h1>
-          <p class="intro">Enter your Open WebUI address to get started.</p>
+          <h1>{$i18n.t('connections.connectTitle')}</h1>
+          <p class="intro">{$i18n.t('connections.connectDescription')}</p>
         {/if}
 
         <form
@@ -339,7 +340,7 @@
           }}
         >
           <div class="field">
-            <label for="url">Open WebUI address</label>
+            <label for="url">{$i18n.t('connections.address')}</label>
             <input
               id="url"
               bind:this={addressInput}
@@ -352,20 +353,34 @@
             />
           </div>
           <div class="field">
-            <label for="name">Name <span class="optional">optional</span></label>
-            <input id="name" bind:value={name} maxlength="100" placeholder="My WebUI" />
+            <label for="name"
+              >{$i18n.t('common.name')}<span class="optional">{$i18n.t('common.optional')}</span
+              ></label
+            >
+            <input
+              id="name"
+              bind:value={name}
+              maxlength="100"
+              placeholder={$i18n.t('connections.namePlaceholder')}
+            />
           </div>
           {#if editing && url.trim() !== state.connections.find((connection) => connection.id === editing)?.url}
-            <p class="message">Changing the address will sign you out of this connection.</p>
+            <p class="message">{$i18n.t('connections.addressWarning')}</p>
           {/if}
           <div class="form-actions">
             {#if editing}
               <button type="button" class="text-button" disabled={busy} onclick={cancelEdit}
-                >Cancel</button
+                >{$i18n.t('common.cancel')}</button
               >
             {/if}
             <button class="primary" disabled={busy}>
-              {editing ? (busy ? 'Saving…' : 'Save') : busy ? 'Connecting…' : 'Connect'}
+              {editing
+                ? busy
+                  ? $i18n.t('common.saving')
+                  : $i18n.t('common.save')
+                : busy
+                  ? $i18n.t('common.connecting')
+                  : $i18n.t('common.connect')}
               {#if !editing}
                 <svg
                   viewBox="0 0 24 24"
@@ -383,21 +398,19 @@
           </div>
         </form>
         {#if !state.persistentCredentials}
-          <p class="message" role="status">
-            Secure credential storage is unavailable. Sign-in will last until Tether quits.
-          </p>
+          <p class="message" role="status">{$i18n.t('connections.credentialWarning')}</p>
         {/if}
         {#if error}<p class="message destructive" role="alert">{error}</p>{/if}
         {#if !openTerminalInstalled}
           <section class="terminal-setup" aria-label="Open Terminal">
             <div>
               <h2>Open Terminal</h2>
-              <p>Let Open WebUI run commands and work with files on this computer.</p>
+              <p>{$i18n.t('terminal.setupDescription')}</p>
             </div>
             <button
               class="text-button"
               disabled={busy}
-              onclick={() => toggleSettings(true, 'terminal')}>Set up</button
+              onclick={() => toggleSettings(true, 'terminal')}>{$i18n.t('common.setUp')}</button
             >
           </section>
         {/if}
@@ -411,7 +424,7 @@
       <div
         class="resize-edge"
         role="separator"
-        aria-label="Resize terminal"
+        aria-label={$i18n.t('logs.resize')}
         aria-orientation="horizontal"
         aria-valuenow={dockHeight}
         aria-valuemin={108}
@@ -432,12 +445,16 @@
         }}
       ></div>
     {/if}
-    <button class="manage-button" aria-label="Settings" onclick={() => toggleSettings(true)}>
+    <button
+      class="manage-button"
+      aria-label={$i18n.t('settings.title')}
+      onclick={() => toggleSettings(true)}
+    >
       <span class="inline-flex size-[12px] shrink-0 [&>svg]:size-full" aria-hidden="true"
         >{@html SettingsIcon}</span
-      >Settings
-    </button>
-    <nav aria-label="WebUI connections">
+      >{$i18n.t('settings.title')}</button
+    >
+    <nav aria-label={$i18n.t('connections.select')}>
       {#each state.connections as connection (connection.id)}
         <button
           class="connection-tab"
@@ -450,14 +467,14 @@
           <span class="tab-label">{connection.name}</span>
           {#if state.errors[connection.id]}<span
               class="error-indicator"
-              aria-label="Connection needs attention"
+              aria-label={$i18n.t('connections.needsAttention')}
             ></span>{/if}
         </button>
         {#if state.selected === connection.id}
           <button
             class="browser-button"
-            aria-label="Open in browser"
-            use:tooltip={'Open in browser'}
+            aria-label={$i18n.t('connections.openInBrowser')}
+            use:tooltip={$i18n.t('connections.openInBrowser')}
             onclick={() => window.open(connection.url, '_blank', 'noopener,noreferrer')}
           >
             <svg
@@ -478,8 +495,8 @@
     {#if state.connections.length}
       <button
         class="add-button"
-        aria-label="Add connection"
-        use:tooltip={'Add connection'}
+        aria-label={$i18n.t('connections.add')}
+        use:tooltip={$i18n.t('connections.add')}
         disabled={busy}
         onclick={() => run(() => window.api.selectConnection(null))}>{@render plus()}</button
       >
@@ -488,13 +505,13 @@
       class="bar-space"
       aria-expanded={terminalOpen}
       aria-controls="terminal-output"
-      aria-label={terminalOpen ? 'Collapse terminal' : 'Expand terminal'}
+      aria-label={terminalOpen ? $i18n.t('logs.collapse') : $i18n.t('logs.expand')}
       onclick={() => (terminalOpen = !terminalOpen)}
     ></button>
     <button
       class="manage-button"
       class:active={terminalOpen}
-      aria-label="Inspect terminal"
+      aria-label={$i18n.t('terminal.inspect')}
       use:tooltip={terminalStatusLabel}
       aria-expanded={terminalOpen}
       aria-controls="terminal-output"
@@ -515,7 +532,7 @@
     {#if appInfo?.version}
       <button
         class="version"
-        use:tooltip={'About Tether'}
+        use:tooltip={$i18n.t('settings.about.title')}
         onclick={() => toggleSettings(true, 'about')}
       >
         v{appInfo.version}
@@ -525,8 +542,8 @@
       class="terminal-toggle"
       aria-expanded={terminalOpen}
       aria-controls="terminal-output"
-      aria-label={terminalOpen ? 'Collapse terminal' : 'Expand terminal'}
-      use:tooltip={terminalOpen ? 'Collapse terminal' : 'Expand terminal'}
+      aria-label={terminalOpen ? $i18n.t('logs.collapse') : $i18n.t('logs.expand')}
+      use:tooltip={terminalOpen ? $i18n.t('logs.collapse') : $i18n.t('logs.expand')}
       onclick={() => (terminalOpen = !terminalOpen)}
     >
       <span
@@ -542,12 +559,12 @@
       class="terminal-output"
       style:height={`${dockHeight}px`}
       aria-label={activeTerminalTab === 'shell'
-        ? 'Shell'
+        ? $i18n.t('terminal.shell')
         : selected
-          ? `Open Terminal: ${selected.name}`
-          : 'Open Terminal setup'}
+          ? $i18n.t('terminal.connectionTitle', { name: selected.name })
+          : $i18n.t('terminal.setup')}
     >
-      <nav class="terminal-tabs" aria-label="Terminal views">
+      <nav class="terminal-tabs" aria-label={$i18n.t('terminal.views')}>
         {#if openTerminalRunning}
           <button
             class:active={activeTerminalTab === 'service'}
@@ -558,7 +575,7 @@
         <button
           class:active={activeTerminalTab === 'shell'}
           aria-pressed={activeTerminalTab === 'shell'}
-          onclick={() => (terminalTab = 'shell')}>Shell</button
+          onclick={() => (terminalTab = 'shell')}>{$i18n.t('terminal.shell')}</button
         >
       </nav>
       <div class="terminal-pane">
@@ -586,10 +603,10 @@
   }}
 >
   <div class="mb-[12px] flex items-center justify-between gap-4">
-    <h2 id="setup-title" class="mb-0!">Set up Open Terminal?</h2>
+    <h2 id="setup-title" class="mb-0!">{$i18n.t('terminal.setupTitle')}</h2>
     <button
       class="inline-flex size-[24px] items-center justify-center rounded-[8px] text-gray-500 hover:text-gray-900 dark:hover:text-white"
-      aria-label="Close setup"
+      aria-label={$i18n.t('terminal.closeSetup')}
       onclick={() => setupDialog.close()}
     >
       <span aria-hidden="true" class="inline-flex size-[14px] [&>svg]:size-full"
@@ -598,12 +615,14 @@
     </button>
   </div>
   <p id="setup-description" class="text-[12px] leading-[18px] text-gray-600 dark:text-gray-400">
-    Enable local capabilities in Open WebUI. You can also set this up later in Settings.
+    {$i18n.t('terminal.setupDetails')}
   </p>
   <div class="mt-[20px] flex items-center justify-end gap-[16px]">
-    <button class="text-button" disabled={busy} onclick={() => finishSetup(false)}>Not now</button>
+    <button class="text-button" disabled={busy} onclick={() => finishSetup(false)}
+      >{$i18n.t('common.notNow')}</button
+    >
     <button class="primary" disabled={busy} onclick={() => finishSetup(true)}
-      >Install and connect</button
+      >{$i18n.t('terminal.installAndConnect')}</button
     >
   </div>
 </dialog>
