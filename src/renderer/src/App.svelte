@@ -362,7 +362,7 @@
             >
             <input
               id="name"
-              dir="auto"
+              dir={name ? 'auto' : $i18n.dir()}
               bind:value={name}
               maxlength="100"
               placeholder={$i18n.t('connections.namePlaceholder')}

@@ -320,7 +320,8 @@
       <span
         aria-hidden="true"
         class="inline-flex size-[12px] shrink-0 items-center justify-center leading-none transition-transform duration-200 [&>svg]:size-full"
-        class:-rotate-90={!advancedOpen}>{@html NavArrowDownIcon}</span
+        class:-rotate-90={!advancedOpen && $i18n.dir() !== 'rtl'}
+        class:rotate-90={!advancedOpen && $i18n.dir() === 'rtl'}>{@html NavArrowDownIcon}</span
       >
       <span class="setting-label">{$i18n.t('common.advanced')}</span>
     </button>

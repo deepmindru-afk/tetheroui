@@ -304,7 +304,7 @@
     {/if}
     <div class="flex items-center gap-[12px]">
       <textarea
-        dir="auto"
+        dir={query ? 'auto' : $i18n.dir()}
         bind:this={input}
         bind:value={query}
         aria-label={$i18n.t('spotlight.ask')}
