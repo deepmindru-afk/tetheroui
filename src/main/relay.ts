@@ -382,9 +382,9 @@ export class Relay {
       })
       stream.socket = socket
       socket.on('error', () => {})
-      await once(socket, 'open')
-      await this.send(header.stream, 'ws-ready')
-      let output = Promise.resolve()
+      const ready = once(socket, 'open').then(() => this.send(header.stream, 'ws-ready'))
+      // Servers can send their initial state with the upgrade response.
+      let output = ready
       socket.on('message', (data, binary) => {
         socket.pause()
         output = output
@@ -400,6 +400,7 @@ export class Relay {
           .catch(() => {})
           .finally(() => this.closeStream(header.stream))
       })
+      await ready
     }
   }
 
