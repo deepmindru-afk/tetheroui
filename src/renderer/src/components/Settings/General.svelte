@@ -8,6 +8,7 @@
 
   let config = $state<GeneralConfig>({ ...defaultGeneralConfig })
   let platform = $state('')
+  let deviceName = $state('')
   let launchAtLogin = $state(false)
   let loaded = $state(false)
   let busy = $state(false)
@@ -44,6 +45,7 @@
         if (disposed) return
         config = saved
         platform = info.platform
+        deviceName = info.deviceName
         launchAtLogin = login
         loaded = true
       })
@@ -159,6 +161,21 @@
 <div class="general-settings">
   <div class="setting-row">
     <div>
+      <label class="setting-label" for="device-name">Device name</label>
+      <p class="setting-description">Shown in Open WebUI. Leave blank to use the device name.</p>
+    </div>
+    <input
+      id="device-name"
+      class="setting-input device-name"
+      value={config.deviceName}
+      placeholder={deviceName}
+      maxlength="100"
+      disabled={!loaded || busy}
+      onchange={(event) => save({ deviceName: event.currentTarget.value })}
+    />
+  </div>
+  <div class="setting-row">
+    <div>
       <label class="setting-label" for="appearance">Appearance</label>
       <p class="setting-description">Choose how Tether looks.</p>
     </div>
@@ -245,7 +262,7 @@
       {/if}
     </div>
   </div>
-  <div class="pt-1">
+  <div class="pt-[16px]">
     <button
       class="inline-flex max-w-full shrink-0 items-center justify-center gap-[6px] whitespace-nowrap border-none bg-transparent p-0 text-[12px] leading-[16px] text-[oklch(0.69_0_0)] transition-colors duration-150 hover:text-[oklch(0.2_0_0)] disabled:cursor-not-allowed disabled:opacity-50 dark:hover:text-white [&>span[aria-hidden]]:size-[12px]"
       aria-expanded={advancedOpen}
@@ -360,6 +377,15 @@
   }
   .setting-input:focus {
     border-color: #60a5fa;
+  }
+  .device-name {
+    width: 180px;
+    min-width: 0;
+    max-width: 50%;
+    padding-inline: 10px;
+  }
+  .device-name::placeholder {
+    color: var(--text-placeholder);
   }
   :global(.dark) .setting-input:focus {
     border-color: #3b82f6;

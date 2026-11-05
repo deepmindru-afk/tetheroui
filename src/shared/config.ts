@@ -6,6 +6,7 @@ export interface LocalServerConfig {
 }
 
 export interface GeneralConfig {
+  deviceName: string
   theme: 'system' | 'light' | 'dark'
   startMinimized: boolean
   runInBackground: boolean
@@ -14,6 +15,7 @@ export interface GeneralConfig {
 }
 
 export const defaultGeneralConfig: GeneralConfig = {
+  deviceName: '',
   theme: 'system',
   startMinimized: false,
   runInBackground: true,
@@ -25,6 +27,14 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
   if (!value || typeof value !== 'object' || Array.isArray(value))
     throw new Error('Invalid settings')
   const config = { ...defaultGeneralConfig, ...value } as GeneralConfig
+  if (
+    typeof config.deviceName !== 'string' ||
+    config.deviceName.trim().length > 100 ||
+    Array.from(config.deviceName).some(
+      (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127
+    )
+  )
+    throw new Error('Device name must be at most 100 characters without control characters.')
   if (!['system', 'light', 'dark'].includes(config.theme)) throw new Error('Invalid appearance')
   for (const key of ['startMinimized', 'runInBackground', 'showMenuBarIcon'] as const) {
     if (typeof config[key] !== 'boolean') throw new Error(`Invalid setting: ${key}`)
@@ -36,6 +46,7 @@ export function parseGeneralConfig(value: unknown): GeneralConfig {
   )
     throw new Error('Invalid keyboard shortcut')
   return {
+    deviceName: config.deviceName.trim(),
     theme: config.theme,
     startMinimized: config.startMinimized,
     runInBackground: config.runInBackground,

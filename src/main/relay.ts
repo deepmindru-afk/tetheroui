@@ -78,7 +78,8 @@ export class Relay {
   constructor(
     private connection: Connection,
     private sessions: Sessions,
-    private status: (message: string) => void
+    private status: (message: string) => void,
+    private getName: () => string
   ) {}
 
   setService(name: string, resolve?: ResolveDestination): void {
@@ -96,9 +97,17 @@ export class Relay {
     }
     if (resolve) this.destinations.set(name, resolve)
     else this.destinations.delete(name)
+    this.updateName()
+  }
+
+  updateName(): void {
     if (this.socket?.readyState === WebSocket.OPEN)
       this.socket.send(
-        JSON.stringify({ type: 'services', services: [...this.destinations.keys()] })
+        JSON.stringify({
+          type: 'services',
+          services: [...this.destinations.keys()],
+          name: this.getName()
+        })
       )
   }
 
@@ -124,7 +133,7 @@ export class Relay {
             version: 2,
             token: access.token,
             connection_id: this.connection.id,
-            name: this.connection.name,
+            name: this.getName(),
             services: [...this.destinations.keys()]
           })
         )

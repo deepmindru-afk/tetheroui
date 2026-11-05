@@ -8,9 +8,10 @@
   import TerminalIcon from 'iconoir/icons/terminal.svg?raw'
   import NavArrowDownIcon from 'iconoir/icons/nav-arrow-down.svg?raw'
   import SettingsIcon from 'iconoir/icons/settings.svg?raw'
+  import XmarkIcon from 'iconoir/icons/xmark.svg?raw'
   import type { AppInfo } from '../../shared/api'
   import type { GeneralConfig } from '../../shared/config'
-  import type { ConnectionState } from '../../shared/connections'
+  import { normalizeURL, type ConnectionState } from '../../shared/connections'
 
   let state = $state<ConnectionState>({
     connections: [],
@@ -53,6 +54,7 @@
   let error = $state('')
   let busy = $state(false)
   let removing = $state<string | null>(null)
+  let setupDialog: HTMLDialogElement
   const selected = $derived(
     state.connections.find((connection) => connection.id === state.selected)
   )
@@ -75,6 +77,18 @@
       if (open) settingsTab = tab
       settingsOpen = open
     })
+  }
+
+  async function addConnection(installTerminal = false): Promise<void> {
+    state = await window.api.addConnection({ name, url, installTerminal })
+    name = ''
+    url = ''
+  }
+
+  function finishSetup(installTerminal: boolean): void {
+    if (busy) return
+    setupDialog.close()
+    void run(() => addConnection(installTerminal))
   }
 
   onMount(() => {
@@ -248,9 +262,9 @@
           onsubmit={(event) => {
             event.preventDefault()
             void run(async () => {
-              state = await window.api.addConnection({ name, url })
-              name = ''
-              url = ''
+              normalizeURL(url.trim())
+              if (state.connections.length === 0 && !openTerminalInstalled) setupDialog.showModal()
+              else await addConnection()
             })
           }}
         >
@@ -451,6 +465,41 @@
 </div>
 
 {#if settingsOpen}<Settings bind:settingsTab onClose={() => void toggleSettings(false)} />{/if}
+
+<dialog
+  bind:this={setupDialog}
+  aria-labelledby="setup-title"
+  aria-describedby="setup-description"
+  class="m-auto w-[calc(100%-48px)] max-w-[400px] rounded-[24px] border-none bg-white p-[20px] text-[#171717] shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm dark:bg-[oklch(0.2_0_0)] dark:text-white"
+  onclick={(event) => {
+    if (event.target === setupDialog) setupDialog.close()
+  }}
+  onkeydown={(event) => {
+    if (event.key === 'Escape') setupDialog.close()
+  }}
+>
+  <div class="mb-[12px] flex items-center justify-between gap-4">
+    <h2 id="setup-title" class="mb-0!">Set up Open Terminal?</h2>
+    <button
+      class="inline-flex size-[24px] items-center justify-center rounded-[8px] text-gray-500 hover:text-gray-900 dark:hover:text-white"
+      aria-label="Close setup"
+      onclick={() => setupDialog.close()}
+    >
+      <span aria-hidden="true" class="inline-flex size-[14px] [&>svg]:size-full"
+        >{@html XmarkIcon}</span
+      >
+    </button>
+  </div>
+  <p id="setup-description" class="text-[12px] leading-[18px] text-gray-600 dark:text-gray-400">
+    Enable local capabilities in Open WebUI. You can also set this up later in Settings.
+  </p>
+  <div class="mt-[20px] flex items-center justify-end gap-[16px]">
+    <button class="text-button" disabled={busy} onclick={() => finishSetup(false)}>Not now</button>
+    <button class="primary" disabled={busy} onclick={() => finishSetup(true)}
+      >Install and connect</button
+    >
+  </div>
+</dialog>
 
 <style>
   .terminal-tabs {
@@ -738,8 +787,8 @@
     padding: 0 8px;
   }
   .terminal-status {
-    width: 7px;
-    height: 7px;
+    width: 5px;
+    height: 5px;
     flex-shrink: 0;
     border-radius: 50%;
     background: var(--bar-muted);
@@ -755,6 +804,8 @@
     background: #ef4444;
   }
   .terminal-status[data-status='stopped'] {
+    width: 7px;
+    height: 7px;
     background: transparent;
     border: 1px dotted var(--bar-muted);
   }

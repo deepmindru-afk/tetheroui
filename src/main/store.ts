@@ -2,6 +2,9 @@ import { app, safeStorage } from 'electron'
 import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
+import { hostname } from 'node:os'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import {
   defaultGeneralConfig,
   parseGeneralConfig,
@@ -21,6 +24,7 @@ export interface Credential {
 }
 
 export class Store {
+  deviceName = hostname().trim().slice(0, 100) || 'This computer'
   connections: Connection[] = []
   selected: string | null = null
   general: GeneralConfig = { ...defaultGeneralConfig }
@@ -33,6 +37,18 @@ export class Store {
   private resetPath = join(app.getPath('userData'), 'reset')
 
   async load(): Promise<void> {
+    if (process.platform === 'darwin') {
+      try {
+        const { stdout } = await promisify(execFile)(
+          '/usr/sbin/scutil',
+          ['--get', 'ComputerName'],
+          { timeout: 1000 }
+        )
+        this.deviceName = stdout.trim().slice(0, 100) || this.deviceName
+      } catch {
+        // Use the hostname if the friendly computer name is unavailable.
+      }
+    }
     const reset = await access(this.resetPath).then(
       () => true,
       (error) => {

@@ -4,6 +4,7 @@ import type { TerminalTarget, TerminalOutput } from './terminal'
 import type { UpdateState } from './updater'
 
 export interface AppInfo {
+  deviceName: string
   name: string
   version: string
   platform: NodeJS.Platform
@@ -40,7 +41,11 @@ export interface TetherAPI {
   restartTerminal: () => Promise<void>
   onRuntimeState: (callback: (state: RuntimeState) => void) => () => void
   listConnections: () => Promise<ConnectionState>
-  addConnection: (input: { name: string; url: string }) => Promise<ConnectionState>
+  addConnection: (input: {
+    name: string
+    url: string
+    installTerminal?: boolean
+  }) => Promise<ConnectionState>
   selectConnection: (id: string | null) => Promise<void>
   reloadConnection: () => Promise<void>
   removeConnection: (id: string) => Promise<void>

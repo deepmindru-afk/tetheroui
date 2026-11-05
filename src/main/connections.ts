@@ -50,7 +50,7 @@ export class Connections {
     (state) => this.runtimeChanged(state)
   )
   private updatingRuntime = false
-  private local = new Map<string, LocalConnection>()
+  private local = new Map<string | null, LocalConnection>()
   private terminalHeight = 0
   private localShell = new ManagedService(spawnPty, true)
   private settingsOpen = false
@@ -62,6 +62,7 @@ export class Connections {
 
   async initialize(): Promise<void> {
     await this.store.load()
+    void this.startLocalTerminal()
     this.sessions.start()
     for (const id of Object.keys(this.store.credentials)) void this.ensureLocal(id)
   }
@@ -159,7 +160,6 @@ export class Connections {
     let installed = false
     const entries = [...this.local.values()]
     for (const entry of entries) {
-      if (!entry.relay) continue
       clearTimeout(entry.retry)
       entry.retry = undefined
       entry.handle = undefined
@@ -175,8 +175,10 @@ export class Connections {
       installed = true
     } finally {
       this.updatingRuntime = false
-      if (installed && !this.stopped)
+      if (installed && !this.stopped) {
+        void this.startLocalTerminal()
         for (const [id, entry] of this.local) void this.startTerminal(id, entry)
+      }
     }
   }
 
@@ -227,6 +229,7 @@ export class Connections {
           (target.id === null || this.store.connections.some((item) => item.id === target.id))
         ) {
           service = this.terminal.getService(target.id)
+          if (service.info.status === 'stopped') service = this.terminal.getService(null)
         } else return
         attachTerminal(service, event.sender, attachment)
       } catch {
@@ -260,23 +263,33 @@ export class Connections {
       this.shellSender(event)
       return this.state()
     })
-    ipcMain.handle('connections:add', async (event, input: { name: string; url: string }) => {
-      this.shellSender(event)
-      if (
-        !input ||
-        typeof input.url !== 'string' ||
-        typeof input.name !== 'string' ||
-        input.name.length > 100
-      ) {
-        throw new Error('Invalid connection')
+    ipcMain.handle(
+      'connections:add',
+      async (event, input: { name: string; url: string; installTerminal?: boolean }) => {
+        this.shellSender(event)
+        if (
+          !input ||
+          typeof input.url !== 'string' ||
+          typeof input.name !== 'string' ||
+          input.name.length > 100 ||
+          (input.installTerminal !== undefined && typeof input.installTerminal !== 'boolean')
+        ) {
+          throw new Error('Invalid connection')
+        }
+        const url = normalizeURL(input.url.trim())
+        const connection = { id: randomUUID(), name: input.name.trim() || new URL(url).host, url }
+        this.store.connections.push(connection)
+        await this.store.saveConfig()
+        await this.select(connection.id)
+        if (input.installTerminal) {
+          void this.installTerminal().catch((error) => {
+            if (this.store.connections.some((item) => item.id === connection.id))
+              this.fail(connection.id, String(error))
+          })
+        }
+        return this.state()
       }
-      const url = normalizeURL(input.url.trim())
-      const connection = { id: randomUUID(), name: input.name.trim() || new URL(url).host, url }
-      this.store.connections.push(connection)
-      await this.store.saveConfig()
-      await this.select(connection.id)
-      return this.state()
-    })
+    )
     ipcMain.handle('connections:select', async (event, id: string | null) => {
       this.shellSender(event)
       await this.select(id)
@@ -399,11 +412,13 @@ export class Connections {
     }
   }
 
-  private localChanged(id: string, entry: LocalConnection): void {
+  private localChanged(id: string | null, entry: LocalConnection): void {
     if (this.local.get(id) !== entry || this.stopped) return
     const error = entry.relayError || entry.terminalError
-    if (error) this.errors[id] = error
-    else delete this.errors[id]
+    if (id !== null) {
+      if (error) this.errors[id] = error
+      else delete this.errors[id]
+    }
     this.emit()
   }
 
@@ -418,6 +433,11 @@ export class Connections {
       cancelId: 0
     })
     if (response !== 1 || this.stopped) return
+    await this.installTerminal()
+  }
+
+  private async installTerminal(): Promise<void> {
+    if (this.stopped || this.updatingRuntime) return
     await this.restartTerminal(true)
     if (this.stopped) return
     if (!this.store.localServer.enabled) {
@@ -433,6 +453,7 @@ export class Connections {
         localServer: this.store.localServer
       })
     }
+    await this.startLocalTerminal()
     for (const id of Object.keys(this.store.credentials)) void this.ensureLocal(id)
   }
 
@@ -465,7 +486,7 @@ export class Connections {
       for (const [id, entry] of this.local) {
         clearTimeout(entry.retry)
         entry.relay?.stop()
-        delete this.errors[id]
+        if (id !== null) delete this.errors[id]
       }
       this.local.clear()
       this.emit()
@@ -473,6 +494,10 @@ export class Connections {
     } finally {
       this.updatingRuntime = false
     }
+  }
+
+  updateDeviceName(): void {
+    for (const entry of this.local.values()) entry.relay?.updateName()
   }
 
   private async ensureLocal(id: string): Promise<void> {
@@ -498,10 +523,15 @@ export class Connections {
       if (!response.ok) throw new Error('Could not reach WebUI.')
       const config = (await response.json()) as { features?: { tether?: boolean } }
       if (!config.features?.tether || this.local.get(id) !== entry || this.stopped) return
-      entry.relay = new Relay(connection, this.sessions, (message) => {
-        entry.relayError = message
-        this.localChanged(id, entry)
-      })
+      entry.relay = new Relay(
+        connection,
+        this.sessions,
+        (message) => {
+          entry.relayError = message
+          this.localChanged(id, entry)
+        },
+        () => this.store.general.deviceName || this.store.deviceName
+      )
       await entry.relay.connect()
       void this.startTerminal(id, entry)
     } catch (error) {
@@ -516,13 +546,23 @@ export class Connections {
     }
   }
 
-  private async startTerminal(id: string, entry: LocalConnection): Promise<void> {
+  private async startLocalTerminal(): Promise<void> {
+    if (!this.store.localServer.enabled || this.stopped || this.updatingRuntime) return
+    let entry = this.local.get(null)
+    if (!entry) {
+      entry = {}
+      this.local.set(null, entry)
+    }
+    await this.startTerminal(null, entry)
+  }
+
+  private async startTerminal(id: string | null, entry: LocalConnection): Promise<void> {
     if (
       !this.store.localServer.enabled ||
       this.stopped ||
       this.updatingRuntime ||
       this.local.get(id) !== entry ||
-      !entry.relay ||
+      (id !== null && !entry.relay) ||
       entry.starting ||
       entry.handle
     )
@@ -536,16 +576,17 @@ export class Connections {
         this.local.get(id) !== entry ||
         this.stopped ||
         this.updatingRuntime ||
-        !this.sessions.credential(id)
+        (id !== null && !this.sessions.credential(id))
       ) {
         await handle.stop()
         return
       }
       entry.handle = handle
       entry.terminalError = ''
-      entry.relay.setService('open_terminal', (path, websocket) =>
-        this.terminal.destination(id, path, websocket)
-      )
+      if (id !== null)
+        entry.relay?.setService('open_terminal', (path, websocket) =>
+          this.terminal.destination(id, path, websocket)
+        )
       this.localChanged(id, entry)
       const unsubscribe = handle.service.subscribe((event) => {
         if (event.type !== 'state' || event.info.pid !== null || event.info.status === 'starting')

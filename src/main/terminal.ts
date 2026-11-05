@@ -26,7 +26,7 @@ export class OpenTerminal {
   private state: RuntimeState = { version: null, status: '', busy: false, error: '' }
   private runtime = new Runtime('python', (data) => this.append(data))
   private services = new Map<string | null, ManagedService>()
-  private handles = new Map<string, TerminalHandle>()
+  private handles = new Map<string | null, TerminalHandle>()
 
   constructor(
     private getConfig: () => LocalServerConfig = () => ({
@@ -115,13 +115,9 @@ export class OpenTerminal {
   }
 
   getStatus(id: string | null): ServiceStatus {
-    if (id !== null) return this.services.get(id)?.info.status ?? 'stopped'
-    const statuses = [...this.services.values()].map((service) => service.info.status)
-    return (
-      (['started', 'starting', 'stopping', 'failed'] as const).find((status) =>
-        statuses.includes(status)
-      ) ?? 'stopped'
-    )
+    const status = this.services.get(id)?.info.status
+    if (status && status !== 'stopped') return status
+    return this.services.get(null)?.info.status ?? 'stopped'
   }
 
   getService(id: string | null): ManagedService {
@@ -218,7 +214,7 @@ export class OpenTerminal {
     }
   }
 
-  async start(id: string, status: (message: string) => void): Promise<TerminalHandle> {
+  async start(id: string | null, status: (message: string) => void): Promise<TerminalHandle> {
     const service = this.getService(id)
     await service.start(async (signal) => {
       await this.install(status)
@@ -271,7 +267,7 @@ export class OpenTerminal {
             OPEN_TERMINAL_ENABLE_NOTEBOOKS: 'false',
             OPEN_TERMINAL_MULTI_USER: 'false',
             OPEN_TERMINAL_CORS_ALLOWED_ORIGINS: '',
-            OPEN_TERMINAL_LOG_DIR: join(app.getPath('logs'), 'terminal', id)
+            OPEN_TERMINAL_LOG_DIR: join(app.getPath('logs'), 'terminal', id ?? 'local')
           }).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
         ),
         url,

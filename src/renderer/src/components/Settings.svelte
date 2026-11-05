@@ -25,7 +25,7 @@
       icon: SettingsIcon,
       group: null,
       keywords:
-        'appearance theme auto light dark login minimized background menu bar icon keyboard shortcut advanced factory reset'
+        'device name appearance theme auto light dark login minimized background menu bar icon keyboard shortcut advanced factory reset'
     },
     {
       id: 'terminal',

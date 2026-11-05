@@ -189,6 +189,7 @@ function registerIPC(): void {
   handle(
     'app:info',
     (): AppInfo => ({
+      deviceName: connections.store.deviceName,
       name: app.name,
       version: app.getVersion(),
       platform: process.platform
@@ -236,6 +237,7 @@ function registerIPC(): void {
         localServer: store.localServer
       })
       updateTray()
+      if (next.deviceName !== previous.deviceName) connections.updateDeviceName()
     })
     savingConfig = operation.catch(() => {})
     return operation
