@@ -25,6 +25,8 @@ export interface AccessToken {
 
 export interface TetherBridge {
   version: 1
+  isFocused(): Promise<boolean>
+  focus(): Promise<void>
   signedIn(token: string): Promise<AccessToken>
   refresh(force?: boolean): Promise<AccessToken | null>
   signedOut(): Promise<void>

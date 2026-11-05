@@ -5,6 +5,8 @@ let managed = false
 
 const bridge: TetherBridge = {
   version: 1,
+  isFocused: () => ipcRenderer.invoke('tether:isFocused'),
+  focus: () => ipcRenderer.invoke('tether:focus'),
   onEvent: (callback) => {
     const listener = async (
       _event: Electron.IpcRendererEvent,

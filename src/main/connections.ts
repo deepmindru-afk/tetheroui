@@ -444,6 +444,25 @@ export class Connections {
       await this.store.saveConfig()
       await this.select(this.store.selected)
     })
+    ipcMain.handle('tether:isFocused', (event) => {
+      const id = this.guestSender(event)
+      return Boolean(
+        id === this.store.selected &&
+        !this.settingsOpen &&
+        this.window?.isVisible() &&
+        !this.window.isMinimized() &&
+        this.window.isFocused()
+      )
+    })
+    ipcMain.handle('tether:focus', async (event) => {
+      const id = this.guestSender(event)
+      await this.showConnection(id)
+      this.guestSender(event)
+      if (this.window?.isMinimized()) this.window.restore()
+      this.window?.show()
+      this.window?.focus()
+      this.views.get(id)?.webContents.focus()
+    })
     ipcMain.handle('tether:login', (event, token: string) =>
       this.sessions.signedIn(this.guestSender(event), token)
     )
