@@ -56,6 +56,8 @@ export class OpenTerminal {
     env.PATH = [
       env.PATH ?? '',
       join(homedir(), '.local', 'bin'),
+      join(homedir(), '.cursor', 'bin'),
+      join(homedir(), '.opencode', 'bin'),
       ...(process.platform === 'darwin' ? ['/opt/homebrew/bin', '/usr/local/bin'] : [])
     ].join(delimiter)
     return env
